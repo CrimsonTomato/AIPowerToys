@@ -1,0 +1,8 @@
+{
+    "id": "Xenova/depth-anything-small-hf",
+    "name": "Depth Anything (Small)",
+    "author": "LiheYoung/Xenova",
+    "task": "depth-estimation",
+    "description": "A robust monocular depth estimation model. Requires the full repository to be cloned locally.",
+    "config_files": ["config.json", "preprocessor_config.json"]
+}

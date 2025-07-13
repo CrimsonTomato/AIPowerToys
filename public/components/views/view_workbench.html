@@ -1,0 +1,39 @@
+<div id="view-workbench">
+    <h1>AI PowerToys (C2MR)</h1>
+    <div class="main-controls">
+        <button id="connect-folder-btn">Connect to Models Folder</button>
+    </div>
+
+    <div id="models-list">
+        <!-- Models will be rendered here by ui.js -->
+    </div>
+
+    <hr>
+
+    <div id="workbench-area" class="hidden">
+        <h2>Workbench</h2>
+        <div id="input-container">
+            <div class="input-area">
+                <label for="image-picker">Choose an image:</label>
+                <input type="file" id="image-picker" accept="image/*" />
+                <div class="image-preview-container">
+                    <img id="image-preview" src="" alt="Image preview" class="hidden" />
+                </div>
+            </div>
+        </div>
+        <div class="run-controls">
+            <button id="run-inference-btn" disabled>Run Inference</button>
+            <p id="status-text">Status: Select a model and image.</p>
+        </div>
+        <div id="output-container">
+            <div class="output-area">
+                <p>Output:</p>
+                <canvas id="output-canvas"></canvas>
+                <div class="export-controls">
+                    <button id="copy-btn" disabled>Copy Image</button>
+                    <button id="save-btn" disabled>Save Image</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
