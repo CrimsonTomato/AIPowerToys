@@ -1,0 +1,13 @@
+{
+    "id": "Xenova/swin2SR-lightweight-x2-64",
+    "name": "Swin2SR Upscaler (x2)",
+    "author": "Xenova",
+    "task": "image-to-image",
+    "description": "Upscales an image to twice its original size using the Swin2SR lightweight model. Best for images up to 64x64px.",
+    "ui_components": {
+        "workbench_input": "/components/workbench/image_input.html",
+        "workbench_output": "/components/workbench/image_output.html"
+    },
+    "config_files": ["config.json", "preprocessor_config.json"],
+    "configurable_params": []
+}

@@ -6,7 +6,7 @@
 .app-container {
     display: grid;
     grid-template-columns: var(--sidebar-left-width-wide) 1fr; /* Only left sidebar for now */
-    height: 100vh;
+    height: 100%; /* MODIFIED: Use 100% to fill the parent (#root-container) */
     position: relative;
     overflow: hidden; /* Prevent content from breaking out */
 }
@@ -15,12 +15,9 @@
 .sidebar-left,
 .sidebar-right {
     background-color: var(--bg-secondary);
-    padding: 16px;
+    /* padding: 16px; */ /* <-- REMOVED from here */
     display: flex;
     flex-direction: column;
-}
-
-.sidebar-left {
     border-right: 1px solid var(--border-color);
 }
 
@@ -29,7 +26,8 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    margin-bottom: 8px;
+    margin-bottom: 0; /* Let the divider handle spacing */
+    padding: 16px 16px 0 16px; /* ADDED: Padding is now inside */
 }
 
 .sidebar-header h1,
@@ -42,15 +40,14 @@
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-    min-height: 0;
+    min-height: 0; /* Allows this flex item to shrink and scroll */
     overflow-y: auto; /* Allow sidebar content to scroll */
+    padding: 0 16px 16px 16px; /* ADDED: Padding for the scrollable content */
 }
 
 .sidebar-section {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Standard spacing between items within a section */
-    margin-bottom: 12px; /* MODIFIED: Add margin-bottom to sections */
 }
 
 .sidebar-section:last-child {
@@ -58,7 +55,7 @@
 }
 
 hr.sidebar-section-divider {
-    margin: 20px 0 20px 0; /* MODIFIED: Ensure consistent spacing around dividers */
+    margin: 20px 0 20px 0;
     border: none;
     border-top: 1px solid var(--border-color);
 }
@@ -84,7 +81,7 @@ hr.sidebar-section-divider {
     ); /* Ensure center stage has primary background */
 }
 
-/* Define sidebar width variable (can be in _variables.css, but okay here for now) */
+/* Define sidebar width variable */
 :root {
     --sidebar-left-width-wide: 500px; /* Adjusted width for models list */
     --sidebar-left-width-collapsed: 64px; /* For future collapse feature */
