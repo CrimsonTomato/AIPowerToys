@@ -1,0 +1,192 @@
+/*
+  Styles for reusable UI components like buttons and form controls.
+*/
+
+/* --- Buttons --- */
+.btn,
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    font-size: 0.9rem;
+    font-weight: 500; /* Adjusted for better text balance */
+    cursor: pointer;
+    transition: none;
+    user-select: none;
+    white-space: nowrap;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.btn-primary,
+button:not([class*='btn-']) {
+    background-color: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.btn-primary:hover:not(:disabled),
+button:not([class*='btn-']):hover:not(:disabled) {
+    background-color: var(--accent-primary-hover);
+    border-color: var(--accent-primary-hover);
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+    filter: brightness(0.95);
+}
+
+/* MODIFIED: Icon Button styles */
+.icon-btn {
+    padding: 8px; /* Square padding for icon */
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Prevents stretching in flex containers */
+    line-height: 0;
+    transition: none;
+}
+
+.icon-btn svg {
+    width: 20px; /* Consistent icon size */
+    height: 20px;
+    pointer-events: none; /* Allow clicks to pass through to the button */
+    fill: currentColor;
+}
+
+.icon-btn:hover:not(:disabled) {
+    background-color: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+/* --- Form Controls --- */
+select,
+input[type='file'],
+input[type='range'] {
+    padding: 8px 12px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+select {
+    cursor: pointer;
+}
+
+input[type='file'] {
+    cursor: pointer;
+}
+
+/* MODIFIED: Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(
+        0,
+        0,
+        0,
+        0.8
+    ); /* Slightly darker overlay for focus */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: var(--bg-primary);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); /* Stronger shadow */
+    overflow: hidden; /* Ensure nothing escapes modal borders */
+}
+
+/* MODIFIED: Modal close button styles */
+.modal-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 36px; /* Slightly larger hit area */
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    z-index: 1001; /* Above modal content */
+    transition: none;
+}
+
+.modal-close-btn svg {
+    width: 24px; /* Larger icon */
+    height: 24px;
+    fill: currentColor;
+}
+
+.modal-close-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: auto; /* Allow content to scroll if too large */
+}
+
+.modal-body img,
+.modal-body canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    border-radius: var(--radius);
+}
+
+.btn-success-feedback {
+    background-color: var(--status-found-color); /* Green */
+    border-color: var(--status-found-color);
+    color: white;
+}
+
+.btn-failure-feedback {
+    background-color: var(--status-missing-color); /* Red */
+    border-color: var(--status-missing-color);
+    color: white;
+}

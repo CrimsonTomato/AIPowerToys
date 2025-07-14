@@ -6,58 +6,184 @@ import {
     downloadModel,
 } from '../_controllers/modelController.js';
 import { connectToDirectory } from '../_controllers/fileSystemController.js';
-import { renderWorkbench, renderModelsList, renderStatus } from '../ui.js';
-import { setActiveModuleId, setSelectedVariant } from '../state.js';
+import {
+    renderWorkbench,
+    renderModelsList,
+    renderStatus,
+    openImageModal,
+    closeImageModal,
+} from '../ui.js'; // MODIFIED: Import modal functions
+import {
+    setActiveModuleId,
+    setSelectedVariant,
+    setRuntimeConfig,
+    toggleModelCollapsed,
+} from '../state.js';
 
 // Initializes all event listeners for the workbench.
 export function initWorkbenchEvents() {
+    // Consolidated listener for all major click events in the app.
+    // Using .closest() makes event handling robust, even with complex inner elements (like SVGs in buttons).
     document.body.addEventListener('click', e => {
         const target = e.target;
-        if (target.id === 'connect-folder-btn') {
+
+        // Sidebar & Model List Actions
+        if (target.closest('#connect-folder-btn')) {
             connectToDirectory();
-        } else if (target.matches('.select-model-btn')) {
-            const moduleId = target.dataset.moduleId;
+        } else if (target.closest('.model-card-header')) {
+            const header = target.closest('.model-card-header');
+            const moduleId = header.dataset.moduleId;
+            toggleModelCollapsed(moduleId);
+            renderModelsList();
+        } else if (target.closest('.select-model-btn')) {
+            const btn = target.closest('.select-model-btn');
+            const moduleId = btn.dataset.moduleId;
             setActiveModuleId(moduleId);
             renderModelsList();
             renderWorkbench();
-        } else if (target.matches('.download-btn')) {
-            const moduleId = target.dataset.moduleId;
+        } else if (target.closest('.download-btn')) {
+            const btn = target.closest('.download-btn');
+            const moduleId = btn.dataset.moduleId;
             downloadModel(moduleId);
-        } else if (target.id === 'run-inference-btn') {
+
+            // Workbench Actions
+        } else if (target.closest('#run-inference-btn')) {
             const imageData = dom.getImagePreview()?.src;
             runInference(imageData);
-        } else if (target.id === 'copy-btn') {
+        } else if (target.closest('#copy-btn')) {
             copyOutputToClipboard();
-        } else if (target.id === 'save-btn') {
+        } else if (target.closest('#save-btn')) {
             saveOutputToFile();
+        } else if (target.closest('#view-input-btn')) {
+            openImageModal('input');
+        } else if (target.closest('#view-output-btn')) {
+            openImageModal('output');
+
+            // Modal Closing Actions
+        } else if (
+            target.closest('#modal-close-btn') ||
+            target.id === 'image-modal'
+        ) {
+            // The second condition checks if the click was on the overlay itself, not its content.
+            closeImageModal();
         }
     });
 
     document.body.addEventListener('change', e => {
         const target = e.target;
         if (target.id === 'image-picker') {
-            handleImagePick(e);
+            const file = e.target.files[0];
+            if (file) {
+                loadImageFile(file);
+            }
         } else if (target.matches('.variant-selector')) {
             const moduleId = target.dataset.moduleId;
             const variantName = target.value;
             setSelectedVariant(moduleId, variantName);
+            renderStatus();
         }
     });
+
+    document.body.addEventListener('input', e => {
+        const target = e.target;
+        if (target.matches('.runtime-control input[type="range"]')) {
+            const moduleId = target.dataset.moduleId;
+            const paramId = target.dataset.paramId;
+            const value = parseFloat(target.value);
+            setRuntimeConfig(moduleId, paramId, value);
+            const valueDisplay = document.getElementById(
+                `param-val-${paramId}`
+            );
+            if (valueDisplay) valueDisplay.textContent = value;
+        }
+    });
+
+    handleImageDropAreaEvents();
 }
 
-// Handles file input change.
-function handleImagePick(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const preview = dom.getImagePreview();
-            if (preview) {
-                preview.src = e.target.result;
-                preview.classList.remove('hidden');
-                renderStatus(); // Update button state
-            }
-        };
-        reader.readAsDataURL(file);
+// NEW: Global event listeners (e.g., theme toggle)
+export function initGlobalEvents() {
+    // Apply theme on load
+    applySavedTheme();
+
+    const themeToggleBtn = dom.themeToggleBtn();
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
     }
+}
+
+function toggleTheme() {
+    const isDarkMode = document.documentElement.classList.toggle('dark-mode');
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+}
+
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    } else {
+        document.documentElement.classList.remove('dark-mode');
+    }
+}
+
+function loadImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        console.warn('Selected file is not an image.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const preview = dom.getImagePreview();
+        const placeholder = dom.getImageInputPlaceholder();
+        if (preview) {
+            preview.src = e.target.result;
+            preview.classList.remove('hidden');
+            if (placeholder) placeholder.classList.add('hidden');
+            renderStatus();
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleImageDropAreaEvents() {
+    const dropArea = dom.getImageDropArea();
+    if (!dropArea) return;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(
+            eventName,
+            () => dropArea.classList.add('drag-over'),
+            false
+        );
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(
+            eventName,
+            () => dropArea.classList.remove('drag-over'),
+            false
+        );
+    });
+
+    dropArea.addEventListener(
+        'drop',
+        e => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                loadImageFile(files[0]);
+            }
+        },
+        false
+    );
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
 }

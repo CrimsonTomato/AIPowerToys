@@ -1,7 +1,11 @@
 import { get, set } from 'idb-keyval';
-import { setDirectoryHandle, updateModelStatus } from '../state.js';
-import { renderModelsList } from '../ui.js';
-import { state } from '../state.js';
+import {
+    setDirectoryHandle,
+    updateModelStatus,
+    setDownloadProgress,
+    state,
+} from '../state.js'; // MODIFIED: Added state import
+import { renderModelsList, renderFolderConnectionStatus } from '../ui.js';
 
 const DIRECTORY_HANDLE_KEY = 'modelsDirectoryHandle';
 
@@ -10,10 +14,10 @@ export async function connectToDirectory() {
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         await set(DIRECTORY_HANDLE_KEY, handle);
         setDirectoryHandle(handle);
+        renderFolderConnectionStatus();
         checkAllModelsStatus();
     } catch (error) {
         console.error('Error connecting to directory:', error);
-        alert('Failed to get directory handle. Please try again.');
     }
 }
 
@@ -24,57 +28,76 @@ export async function loadDirectoryHandle() {
             (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
         ) {
             setDirectoryHandle(handle);
-            checkAllModelsStatus();
+            renderFolderConnectionStatus();
+            await checkAllModelsStatus();
             return true;
         }
     }
+    renderFolderConnectionStatus();
     return false;
 }
 
 export async function checkAllModelsStatus() {
     for (const module of state.modules) {
-        await checkModelStatus(module); // Ensure we await the check
+        await checkModelStatus(module);
     }
 }
 
 async function checkModelStatus(module) {
     if (!state.directoryHandle) return;
+
     updateModelStatus(module.id, { status: 'checking' });
     renderModelsList();
 
+    let onnxDirHandle;
     try {
         const repoDirName = module.id.split('/')[1];
         const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
             repoDirName
         );
-        const onnxDirHandle = await moduleDirHandle.getDirectoryHandle('onnx');
 
-        const discoveredVariants = [];
-        // Iterate through all files in the onnx directory
+        try {
+            onnxDirHandle = await moduleDirHandle.getDirectoryHandle('onnx');
+        } catch (e) {
+            throw new Error(
+                `Found repository directory, but the required 'onnx' subdirectory is missing.`
+            );
+        }
+
+        let discoveredVariants = []; // Use `let` so we can reassign after sorting
         for await (const [name, handle] of onnxDirHandle.entries()) {
             if (handle.kind === 'file' && name.endsWith('.onnx')) {
                 const variant = parseVariantFromFilename(name);
-                if (variant) {
-                    discoveredVariants.push(variant);
-                }
+                if (variant) discoveredVariants.push(variant);
             }
         }
 
         if (discoveredVariants.length > 0) {
+            // NEW: Sort the discovered variants
+            discoveredVariants = sortVariants(discoveredVariants);
+
             updateModelStatus(module.id, {
                 status: 'found',
                 discoveredVariants: discoveredVariants,
-                // Default to the first discovered variant
-                selectedVariant: discoveredVariants[0].name,
+                // Ensure selectedVariant is still valid after sorting, or default to first
+                selectedVariant: discoveredVariants.some(
+                    v =>
+                        v.name ===
+                        state.modelStatuses[module.id]?.selectedVariant
+                )
+                    ? state.modelStatuses[module.id].selectedVariant
+                    : discoveredVariants[0].name,
             });
         } else {
-            // Found the repo, but no .onnx files in the onnx folder
-            updateModelStatus(module.id, { status: 'missing' });
+            throw new Error(
+                `Found 'onnx' subdirectory, but it contains no .onnx model files.`
+            );
         }
     } catch (error) {
-        // Could not find the repo directory or onnx subdirectory
+        console.warn(`Model check failed for "${module.id}":`, error.message);
         updateModelStatus(module.id, { status: 'missing' });
     }
+
     renderModelsList();
 }
 
@@ -138,7 +161,7 @@ function parseVariantFromFilename(filename) {
     if (filename === 'model_quantized.onnx') {
         // This is a special flag in Transformers.js, often a default for int8.
         return {
-            name: 'Quantized (Default)',
+            name: 'Quantized (Default)', // Use 'Quantized (Default)' as requested
             filename: fullPath,
             pipeline_options: { quantized: true },
         };
@@ -161,10 +184,43 @@ function parseVariantFromFilename(filename) {
     }
 
     // Fallback for any other .onnx file that doesn't match known patterns.
-    // The user can still try to run it.
     return {
-        name: `Unknown (${filename})`,
+        name: `Unknown (${filename})`, // Provide a name for unknown variants
         filename: fullPath,
         pipeline_options: {}, // No specific options
     };
+}
+
+/**
+ * Sorts an array of variant objects according to a predefined order.
+ * Order: "Quantized (Default)", "Full Precision (fp32)", "Half Precision (fp16)", then others alphabetically.
+ * @param {Array<object>} variants - An array of variant objects.
+ * @returns {Array<object>} The sorted array of variant objects.
+ */
+function sortVariants(variants) {
+    const order = [
+        'Quantized (Default)',
+        'Full Precision (fp32)',
+        'Half Precision (fp16)',
+    ];
+
+    return variants.sort((a, b) => {
+        const indexA = order.indexOf(a.name);
+        const indexB = order.indexOf(b.name);
+
+        // If both are in the predefined order, sort by their index
+        if (indexA !== -1 && indexB !== -1) {
+            return indexA - indexB;
+        }
+        // If only A is in the predefined order, A comes first
+        if (indexA !== -1) {
+            return -1;
+        }
+        // If only B is in the predefined order, B comes first
+        if (indexB !== -1) {
+            return 1;
+        }
+        // If neither is in the predefined order, sort alphabetically by name
+        return a.name.localeCompare(b.name);
+    });
 }

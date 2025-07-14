@@ -1,0 +1,44 @@
+/*
+  Contains all CSS custom properties (variables) for theming,
+  sizing, and colors, including the dark mode theme override.
+  Adapted from TierRanker.
+*/
+
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f0f2f5;
+    --bg-tertiary: #e4e6eb;
+    --text-primary: #050505;
+    --text-secondary: #65676b;
+    --border-color: #ced0d4;
+    --accent-primary: #0866ff;
+    --accent-primary-hover: #0058e0;
+    --radius: 8px;
+
+    /* Status Colors */
+    --status-found-color: #28a745; /* Green */
+    --status-missing-color: #dc3545; /* Red */
+
+    /* Scrollbar Colors */
+    --scrollbar-track-color: #f0f2f5;
+    --scrollbar-thumb-color: #b0b3b8;
+}
+
+html.dark-mode {
+    --bg-primary: #18191a;
+    --bg-secondary: #242526;
+    --bg-tertiary: #3a3b3c;
+    --text-primary: #e4e6eb;
+    --text-secondary: #b0b3b8;
+    --border-color: #3e4042;
+    --accent-primary: #2e89ff;
+    --accent-primary-hover: #1b7dff;
+
+    /* Status Colors */
+    --status-found-color: #34c759;
+    --status-missing-color: #ff453a;
+
+    /* Scrollbar Colors for Dark Mode */
+    --scrollbar-track-color: #242526;
+    --scrollbar-thumb-color: #55585b;
+}

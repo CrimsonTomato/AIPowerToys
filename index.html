@@ -5,11 +5,19 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI PowerToys (C2MR)</title>
+  <title>AI PowerToys</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
-  <div id="app"></div>
+  <div id="root-container">
+    <div class="app-container" id="app-container">
+      <%- injectLeftSidebar %>
+        <main class="center-stage" id="center-stage">
+          <!-- Workbench content will be injected here -->
+        </main>
+    </div>
+  </div>
   <script type="module" src="/js/main.js"></script>
 </body>
 

@@ -1,8 +1,16 @@
-import { setModules } from './state.js';
-import { renderApp } from './ui.js';
+import { setModules, setActiveModuleId, state } from './state.js';
+import {
+    renderApp,
+    renderModelsList,
+    renderWorkbench,
+    renderFolderConnectionStatus,
+} from './ui.js';
 import { initWorker } from './_controllers/modelController.js';
 import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
-import { initWorkbenchEvents } from './_events/workbenchEvents.js';
+import {
+    initWorkbenchEvents,
+    initGlobalEvents,
+} from './_events/workbenchEvents.js'; // MODIFIED: Import initGlobalEvents
 
 /**
  * Fetches all official module manifests defined in the central config file.
@@ -26,24 +34,31 @@ async function loadAllModules() {
         alert(
             'Error: Could not load the application module configuration. The app may not function correctly.'
         );
-        return []; // Return an empty array on failure
+        return [];
     }
 }
 
 async function main() {
-    // 1. Load all available module manifests dynamically
     const allModules = await loadAllModules();
     setModules(allModules);
 
-    // 2. Render the basic app structure
     await renderApp();
 
-    // 3. Try to load saved directory handle and check model statuses
-    await loadDirectoryHandle();
+    // MODIFIED: Removed default active module setting.
+    // If you need to pre-select a module, do it here conditionally.
+    // if (state.modules.length > 0) {
+    //     setActiveModuleId(state.modules[0].id);
+    // }
+    renderModelsList(); // Renders models list, but none will be active initially
 
-    // 4. Initialize worker and events
+    await loadDirectoryHandle();
+    renderFolderConnectionStatus(); // <-- NEW: Call on initial load
+
     initWorker();
     initWorkbenchEvents();
+    initGlobalEvents(); // NEW: Initialize global theme events
+
+    renderWorkbench(); // Will hide workbench if no active module
 }
 
 main();

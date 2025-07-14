@@ -1,38 +1,85 @@
-<div id="view-workbench">
-    <h1>AI PowerToys (C2MR)</h1>
-    <div class="main-controls">
-        <button id="connect-folder-btn">Connect to Models Folder</button>
-    </div>
-
-    <div id="models-list">
-        <!-- Models will be rendered here by ui.js -->
-    </div>
-
-    <hr>
-
-    <div id="workbench-area" class="hidden">
+<div id="workbench-view-content">
+    <div id="workbench-area">
         <h2>Workbench</h2>
-        <div id="input-container">
-            <div class="input-area">
-                <label for="image-picker">Choose an image:</label>
-                <input type="file" id="image-picker" accept="image/*" />
-                <div class="image-preview-container">
-                    <img id="image-preview" src="" alt="Image preview" class="hidden" />
+
+        <div id="workbench-main-area">
+            <div class="workbench-column">
+                <div id="input-container">
+                    <div class="image-preview-container" id="image-drop-area">
+                        <!-- NEW WRAPPER FOR MAIN CONTENT -->
+                        <div class="aspect-ratio-content-wrapper">
+                            <label for="image-picker" class="image-input-label">
+                                <span id="image-input-placeholder">Choose or drag an image here</span>
+                                <img id="image-preview" src="" alt="Image preview" class="hidden" />
+                                <input type="file" id="image-picker" accept="image/*" class="hidden" />
+                            </label>
+                        </div>
+                        <!-- NEW: View Input button INSIDE input container, bottom right -->
+                        <div class="input-controls hidden-on-hover-parent">
+                            <button id="view-input-btn" class="icon-btn" disabled title="View Input Fullscreen">
+                                <svg viewBox="0 0 24 24">
+                                    <path fill="currentColor"
+                                        d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,19H5V14H7V17H10V19Z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workbench-column">
+                <div id="output-container">
+                    <div class="output-area">
+                        <!-- NEW WRAPPER FOR MAIN CONTENT -->
+                        <div class="aspect-ratio-content-wrapper">
+                            <p class="output-label">Output:</p>
+                            <canvas id="output-canvas"></canvas>
+                        </div>
+                        <div class="output-controls hidden-on-hover-parent">
+                            <button id="view-output-btn" class="icon-btn" disabled title="View Output Fullscreen">
+                                <svg viewBox="0 0 24 24">
+                                    <path fill="currentColor"
+                                        d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,19H5V14H7V17H10V19Z" />
+                                </svg>
+                            </button>
+                            <button id="copy-btn" class="icon-btn" disabled title="Copy Image">
+                                <svg viewBox="0 0 24 24">
+                                    <path fill="currentColor"
+                                        d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
+                                </svg>
+                            </button>
+                            <button id="save-btn" class="icon-btn" disabled title="Save Image">
+                                <svg viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div id="runtime-controls-container">
+            <!-- Runtime controls will be rendered here by ui.js -->
+        </div>
+
         <div class="run-controls">
             <button id="run-inference-btn" disabled>Run Inference</button>
             <p id="status-text">Status: Select a model and image.</p>
         </div>
-        <div id="output-container">
-            <div class="output-area">
-                <p>Output:</p>
-                <canvas id="output-canvas"></canvas>
-                <div class="export-controls">
-                    <button id="copy-btn" disabled>Copy Image</button>
-                    <button id="save-btn" disabled>Save Image</button>
-                </div>
+    </div>
+
+    <!-- MODAL STRUCTURE (No change to ID or basic structure) -->
+    <div id="image-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="modal-close-btn" class="modal-close-btn" title="Close">
+                <svg viewBox="0 0 24 24">
+                    <path fill="currentColor"
+                        d="M13.46,12L19,17.54V19H17.54L12,13.46L6.46,19H5V17.54L10.54,12L5,6.46V5H6.46L12,10.54L17.54,5H19V6.46L13.46,12Z" />
+                </svg>
+            </button>
+            <div class="modal-body">
+                <!-- Image or Canvas will be displayed here -->
             </div>
         </div>
     </div>

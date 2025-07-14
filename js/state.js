@@ -10,7 +10,17 @@ export let state = {
     // Worker & Processing State
     isProcessing: false,
     outputData: null,
-    downloadProgress: { status: 'idle', progress: 0, total: 0, filename: '' },
+    // MODIFIED: Add moduleId to downloadProgress for accurate tracking
+    downloadProgress: {
+        status: 'idle',
+        moduleId: null,
+        progress: 0,
+        total: 0,
+        filename: '',
+    },
+
+    runtimeConfigs: {}, // To store { moduleId: { paramId: value } }
+    collapsedModels: new Set(),
 };
 
 // --- Mutation Functions ---
@@ -34,7 +44,10 @@ export function setActiveModuleId(moduleId) {
 }
 
 export function setSelectedVariant(moduleId, variantName) {
-    state.modelStatuses[moduleId].selectedVariant = variantName;
+    // Ensure the model status object exists before trying to set a property on it
+    if (state.modelStatuses[moduleId]) {
+        state.modelStatuses[moduleId].selectedVariant = variantName;
+    }
 }
 
 export function setProcessing(isProcessing) {
@@ -45,14 +58,21 @@ export function setOutputData(data) {
     state.outputData = data;
 }
 
-export function setActiveModule(module) {
-    state.activeModule = module;
-}
-
-export function setModelFileStatus(status, message) {
-    state.modelFileStatus = { status, message };
-}
-
 export function setDownloadProgress(progress) {
-    state.downloadProgress = progress;
+    state.downloadProgress = { ...state.downloadProgress, ...progress };
+}
+
+export function setRuntimeConfig(moduleId, paramId, value) {
+    if (!state.runtimeConfigs[moduleId]) {
+        state.runtimeConfigs[moduleId] = {};
+    }
+    state.runtimeConfigs[moduleId][paramId] = value;
+}
+
+export function toggleModelCollapsed(moduleId) {
+    if (state.collapsedModels.has(moduleId)) {
+        state.collapsedModels.delete(moduleId);
+    } else {
+        state.collapsedModels.add(moduleId);
+    }
 }

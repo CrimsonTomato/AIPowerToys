@@ -5,7 +5,7 @@ import {
     updateModelStatus,
     setDownloadProgress,
 } from '../state.js';
-import { renderStatus, renderOutputImage, renderModelsList } from '../ui.js';
+import { renderStatus, renderOutputImage, renderModelsList } from '../ui.js'; // Ensure renderModelsList is imported
 import { dom } from '../dom.js';
 import {
     checkAllModelsStatus,
@@ -95,24 +95,31 @@ export async function runInference(imageData) {
             );
         }
 
-        // --- THIS IS THE CHANGE ---
         // Delegate file preparation to the helper function.
         const modelFiles = await _prepareModelFiles(
             activeModule,
             selectedVariant
         );
 
-        // Pass the prepared files to the worker.
+        // Get the base options for the variant
+        const baseOptions = selectedVariant.pipeline_options;
+        // Get the user's runtime settings for this model
+        const userConfigs = state.runtimeConfigs[activeModule.id] || {};
+        // Merge them, with user configs taking priority
+        const finalPipelineOptions = { ...baseOptions, ...userConfigs };
+
+        // Pass the prepared files and *final* options to the worker.
         inferenceWorker.postMessage({
             type: 'run',
             modelFiles: modelFiles,
             modelId: activeModule.id,
             task: activeModule.task,
-            pipelineOptions: selectedVariant.pipeline_options,
+            pipelineOptions: finalPipelineOptions, // Pass the merged options
             data: imageData,
         });
     } catch (error) {
-        alert(`Error preparing for inference: ${error.message}`);
+        console.error('Error preparing for inference:', error);
+        dom.statusText().textContent = `Error: ${error.message}`;
         setProcessing(false);
         renderStatus();
     }
@@ -122,12 +129,44 @@ export async function runInference(imageData) {
 export async function copyOutputToClipboard() {
     const canvas = dom.getOutputCanvas();
     if (!canvas) return;
-    canvas.toBlob(async blob => {
+
+    const copyBtn = dom.copyBtn(); // Get button reference early for feedback
+
+    try {
+        const blob = await new Promise(resolve =>
+            canvas.toBlob(resolve, 'image/png')
+        );
         await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob }),
         ]);
-        alert('Image copied to clipboard!');
-    });
+        dom.statusText().textContent = 'Status: Image copied to clipboard!';
+
+        // Visual feedback for success
+        if (copyBtn) {
+            copyBtn.classList.add('btn-success-feedback');
+            setTimeout(() => {
+                copyBtn.classList.remove('btn-success-feedback');
+            }, 1500); // Remove after 1.5 seconds
+        }
+    } catch (error) {
+        console.error('Failed to copy image:', error);
+        let errorMessage = 'Failed to copy image.';
+        if (error.name === 'NotAllowedError') {
+            errorMessage +=
+                ' Clipboard access denied. Ensure HTTPS or localhost.';
+        } else {
+            errorMessage += ` ${error.message}`;
+        }
+        dom.statusText().textContent = `Status: ${errorMessage}`;
+
+        // Visual feedback for failure (can use a different class or color)
+        if (copyBtn) {
+            copyBtn.classList.add('btn-failure-feedback'); // You'll define this in CSS
+            setTimeout(() => {
+                copyBtn.classList.remove('btn-failure-feedback');
+            }, 1500);
+        }
+    }
 }
 
 export function saveOutputToFile() {
@@ -145,17 +184,27 @@ export function saveOutputToFile() {
  */
 export async function downloadModel(moduleId) {
     if (!state.directoryHandle) {
-        alert('Please connect to a models folder first!');
+        dom.statusText().textContent =
+            'Status: Please connect to a models folder first!';
         return;
     }
     const module = state.modules.find(m => m.id === moduleId);
     if (!module) return;
 
     updateModelStatus(moduleId, { status: 'downloading' });
-    renderModelsList();
+
+    // NEW: Set initial download status and current moduleId
+    setDownloadProgress({
+        status: 'downloading',
+        moduleId: moduleId,
+        progress: 0,
+        total: 0,
+        filename: 'Fetching file list...',
+    });
+
+    renderModelsList(); // Update UI to show downloading status immediately
 
     try {
-        // 1. Get the list of files from the Hugging Face API
         const api_url = `https://huggingface.co/api/models/${moduleId}`;
         const response = await fetch(api_url);
         if (!response.ok)
@@ -165,31 +214,30 @@ export async function downloadModel(moduleId) {
         const modelInfo = await response.json();
         const filesToDownload = modelInfo.siblings;
 
-        // 2. Get/create the main model directory
         const dirName = moduleId.split('/')[1];
         const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
             dirName,
             { create: true }
         );
 
-        // 3. Download each file
         let count = 0;
         for (const fileInfo of filesToDownload) {
-            const filePath = fileInfo.rfilename; // e.g., "onnx/model.onnx" or "config.json"
+            const filePath = fileInfo.rfilename;
             count++;
 
+            // MODIFIED: We already have moduleId in state, just update the progress and filename
             setDownloadProgress({
-                status: 'downloading',
                 progress: count,
                 total: filesToDownload.length,
                 filename: filePath,
             });
-            // You can enhance renderModelsList to show this progress
+
+            renderModelsList();
+
             console.log(
                 `Downloading ${count}/${filesToDownload.length}: ${filePath}`
             );
 
-            // Create subdirectories if they don't exist
             const pathParts = filePath.split('/');
             let currentHandle = moduleDirHandle;
             if (pathParts.length > 1) {
@@ -201,30 +249,33 @@ export async function downloadModel(moduleId) {
                 }
             }
 
-            // Get a handle to the file, creating it if it doesn't exist
             const fileHandle = await currentHandle.getFileHandle(
                 pathParts[pathParts.length - 1],
                 { create: true }
             );
 
-            // Fetch the file content
             const downloadUrl = `https://huggingface.co/${moduleId}/resolve/main/${filePath}`;
             const fileResponse = await fetch(downloadUrl);
             const fileBlob = await fileResponse.blob();
 
-            // Write the content to the file
             const writable = await fileHandle.createWritable();
             await writable.write(fileBlob);
             await writable.close();
         }
 
-        alert(`Model "${module.name}" downloaded successfully!`);
-        // 4. Rescan the models to update the status to "Found"
-        checkAllModelsStatus();
+        // MODIFIED: Reset download status on success
+        setDownloadProgress({ status: 'idle', moduleId: null });
+
+        dom.statusText().textContent = `Status: Model "${module.name}" downloaded successfully!`;
+        checkAllModelsStatus(); // This will update the model card status to 'found'
     } catch (error) {
         console.error('Download failed:', error);
-        alert(`Download failed: ${error.message}`);
+
+        // MODIFIED: Reset download status on failure
+        setDownloadProgress({ status: 'idle', moduleId: null });
+
+        dom.statusText().textContent = `Status: Download for "${module.name}" failed. ${error.message}`;
         updateModelStatus(moduleId, { status: 'missing' }); // Reset status on failure
-        renderModelsList();
+        renderModelsList(); // Update UI to show missing status after failure
     }
 }

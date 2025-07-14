@@ -4,5 +4,16 @@
     "author": "LiheYoung/Xenova",
     "task": "depth-estimation",
     "description": "A robust monocular depth estimation model. Requires the full repository to be cloned locally.",
-    "config_files": ["config.json", "preprocessor_config.json"]
+    "config_files": ["config.json", "preprocessor_config.json"],
+    "configurable_params": [
+        {
+            "id": "denoise_strength",
+            "name": "Denoise Strength",
+            "type": "slider",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "default": 0.5
+        }
+    ]
 }
