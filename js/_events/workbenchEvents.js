@@ -12,7 +12,7 @@ import {
     renderStatus,
     openImageModal,
     closeImageModal,
-} from '../ui.js'; // MODIFIED: Import modal functions
+} from '../ui.js';
 import {
     setActiveModuleId,
     setSelectedVariant,
@@ -22,9 +22,8 @@ import {
 
 // Initializes all event listeners for the workbench.
 export function initWorkbenchEvents() {
-    // Consolidated listener for all major click events in the app.
-    // Using .closest() makes event handling robust, even with complex inner elements (like SVGs in buttons).
-    document.body.addEventListener('click', e => {
+    // Make the handler async to allow `await` for renderWorkbench.
+    document.body.addEventListener('click', async e => {
         const target = e.target;
 
         // Sidebar & Model List Actions
@@ -40,7 +39,7 @@ export function initWorkbenchEvents() {
             const moduleId = btn.dataset.moduleId;
             setActiveModuleId(moduleId);
             renderModelsList();
-            renderWorkbench();
+            await renderWorkbench(); // Await the async render function
         } else if (target.closest('.download-btn')) {
             const btn = target.closest('.download-btn');
             const moduleId = btn.dataset.moduleId;
@@ -64,7 +63,6 @@ export function initWorkbenchEvents() {
             target.closest('#modal-close-btn') ||
             target.id === 'image-modal'
         ) {
-            // The second condition checks if the click was on the overlay itself, not its content.
             closeImageModal();
         }
     });
@@ -101,9 +99,8 @@ export function initWorkbenchEvents() {
     handleImageDropAreaEvents();
 }
 
-// NEW: Global event listeners (e.g., theme toggle)
+// Global event listeners (e.g., theme toggle)
 export function initGlobalEvents() {
-    // Apply theme on load
     applySavedTheme();
 
     const themeToggleBtn = dom.themeToggleBtn();
@@ -147,6 +144,10 @@ function loadImageFile(file) {
 }
 
 function handleImageDropAreaEvents() {
+    // This needs to be called after the workbench is rendered.
+    // Since we're using event delegation on `body`, we can be more specific,
+    // but for now, we'll re-attach to the dropArea if it exists.
+    // The event listeners on `body` for click/change/input are more robust.
     const dropArea = dom.getImageDropArea();
     if (!dropArea) return;
 

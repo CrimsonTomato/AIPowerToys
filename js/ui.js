@@ -63,9 +63,6 @@ export function renderModelsList() {
 /**
  * Renders the HTML for the status paragraph and optional progress bar of a model card.
  * @private
- * @param {object} statusInfo - The status object for the model from the state.
- * @param {object|null} downloadProgressInfo - The download progress for this module, if applicable.
- * @returns {string} The HTML string for the status.
  */
 function _renderModelStatus(statusInfo, downloadProgressInfo = null) {
     let statusHtml = '';
@@ -113,11 +110,8 @@ function _renderModelStatus(statusInfo, downloadProgressInfo = null) {
 }
 
 /**
- * Renders the HTML for the interactive controls of a model card (buttons, select).
+ * Renders the HTML for the interactive controls of a model card.
  * @private
- * @param {object} module - The module manifest object.
- * @param {object} statusInfo - The status object for the model from the state.
- * @returns {string} The HTML string for the controls.
  */
 function _renderModelControls(module, statusInfo) {
     if (statusInfo.status === 'found') {
@@ -182,18 +176,41 @@ function renderRuntimeControls() {
             .join('');
 }
 
-export function renderWorkbench() {
-    const workbenchContent = dom.workbenchContent();
-    if (!workbenchContent) return;
-
+export async function renderWorkbench() {
     const workbenchArea = dom.workbenchArea();
-    if (!workbenchArea) return;
+    const inputArea = dom.workbenchInputArea();
+    const outputArea = dom.workbenchOutputArea();
+    if (!workbenchArea || !inputArea || !outputArea) return;
 
-    if (state.activeModuleId) {
+    const activeModule = state.modules.find(m => m.id === state.activeModuleId);
+
+    if (activeModule) {
         workbenchArea.classList.remove('hidden');
+
+        // Dynamically load and inject UI components from the module manifest.
+        const components = activeModule.ui_components;
+        if (components) {
+            const [inputHtml, outputHtml] = await Promise.all([
+                components.workbench_input
+                    ? fetch(components.workbench_input).then(res => res.text())
+                    : Promise.resolve(''),
+                components.workbench_output
+                    ? fetch(components.workbench_output).then(res => res.text())
+                    : Promise.resolve(''),
+            ]);
+            inputArea.innerHTML = inputHtml;
+            outputArea.innerHTML = outputHtml;
+        } else {
+            // Clear if no components are defined for this module.
+            inputArea.innerHTML = '';
+            outputArea.innerHTML = '';
+        }
+
         renderRuntimeControls();
     } else {
         workbenchArea.classList.add('hidden');
+        inputArea.innerHTML = ''; // Clear on hide
+        outputArea.innerHTML = '';
     }
     renderStatus();
 }
@@ -217,7 +234,6 @@ export function renderStatus() {
         runBtn.disabled = true;
         runBtn.textContent = 'Processing...';
 
-        // Disable and hide control groups while processing
         if (inputControls) inputControls.classList.add('hidden');
         if (outputControls) outputControls.classList.add('hidden');
         if (copyBtn) copyBtn.disabled = true;
@@ -253,7 +269,6 @@ export function renderStatus() {
         runBtn.disabled = !state.activeModuleId || !imageReady;
         runBtn.textContent = 'Run Inference';
 
-        // Manage visibility and disabled state of control groups and buttons
         if (inputControls) {
             if (imageReady) inputControls.classList.remove('hidden');
             else inputControls.classList.add('hidden');
@@ -280,9 +295,6 @@ export function renderOutputImage() {
     ctx.putImageData(state.outputData, 0, 0);
 }
 
-/**
- * Renders the folder connection status and path.
- */
 export function renderFolderConnectionStatus() {
     const connectBtn = dom.connectFolderBtn();
     const pathText = dom.currentFolderPath();
@@ -297,13 +309,12 @@ export function renderFolderConnectionStatus() {
     }
 }
 
-// Modal functions
 export function openImageModal(type) {
     const modal = dom.imageModal();
     const modalBody = dom.modalBody();
     if (!modal || !modalBody) return;
 
-    modalBody.innerHTML = ''; // Clear previous content
+    modalBody.innerHTML = '';
 
     let contentElement;
     if (type === 'input') {
@@ -330,7 +341,7 @@ export function openImageModal(type) {
 
     modalBody.appendChild(contentElement);
     modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden'; // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
 }
 
 export function closeImageModal() {
@@ -338,5 +349,5 @@ export function closeImageModal() {
     const modalBody = dom.modalBody();
     if (modal) modal.classList.add('hidden');
     if (modalBody) modalBody.innerHTML = '';
-    document.body.style.overflow = ''; // Restore body scroll
+    document.body.style.overflow = '';
 }

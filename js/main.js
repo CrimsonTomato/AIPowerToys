@@ -10,7 +10,7 @@ import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
 import {
     initWorkbenchEvents,
     initGlobalEvents,
-} from './_events/workbenchEvents.js'; // MODIFIED: Import initGlobalEvents
+} from './_events/workbenchEvents.js';
 
 /**
  * Fetches all official module manifests defined in the central config file.
@@ -44,21 +44,17 @@ async function main() {
 
     await renderApp();
 
-    // MODIFIED: Removed default active module setting.
-    // If you need to pre-select a module, do it here conditionally.
-    // if (state.modules.length > 0) {
-    //     setActiveModuleId(state.modules[0].id);
-    // }
-    renderModelsList(); // Renders models list, but none will be active initially
+    renderModelsList();
 
     await loadDirectoryHandle();
-    renderFolderConnectionStatus(); // <-- NEW: Call on initial load
+    renderFolderConnectionStatus();
 
     initWorker();
     initWorkbenchEvents();
-    initGlobalEvents(); // NEW: Initialize global theme events
+    initGlobalEvents();
 
-    renderWorkbench(); // Will hide workbench if no active module
+    // Render workbench (will be hidden initially as no model is active)
+    await renderWorkbench();
 }
 
 main();

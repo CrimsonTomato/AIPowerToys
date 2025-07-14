@@ -4,6 +4,10 @@
     "author": "LiheYoung/Xenova",
     "task": "depth-estimation",
     "description": "A robust monocular depth estimation model. Requires the full repository to be cloned locally.",
+    "ui_components": {
+        "workbench_input": "/components/workbench/image_input.html",
+        "workbench_output": "/components/workbench/image_output.html"
+    },
     "config_files": ["config.json", "preprocessor_config.json"],
     "configurable_params": [
         {

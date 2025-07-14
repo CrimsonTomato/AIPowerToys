@@ -16,26 +16,30 @@ export const dom = {
     workbenchContent: () => document.getElementById('workbench-view-content'),
     workbenchArea: () => document.getElementById('workbench-area'),
 
+    // Selectors for component injection areas
+    workbenchInputArea: () => document.getElementById('workbench-input-area'),
+    workbenchOutputArea: () => document.getElementById('workbench-output-area'),
+
     getImagePicker: () => document.getElementById('image-picker'),
     getImagePreview: () => document.getElementById('image-preview'),
     getImageDropArea: () => document.getElementById('image-drop-area'),
     getImageInputPlaceholder: () =>
         document.getElementById('image-input-placeholder'),
-    // NEW: Selector for input-specific controls container
+    // Selector for input-specific controls container
     inputControls: () =>
         document.querySelector('#image-drop-area .input-controls'),
-    viewInputBtn: () => document.getElementById('view-input-btn'), // Still need individual ID for button
+    viewInputBtn: () => document.getElementById('view-input-btn'),
 
     getOutputCanvas: () => document.getElementById('output-canvas'),
     statusText: () => document.getElementById('status-text'),
     runInferenceBtn: () => document.getElementById('run-inference-btn'),
 
-    // NEW: Selector for output-specific controls container
+    // Selector for output-specific controls container
     outputControls: () =>
         document.querySelector('.output-area .output-controls'),
     copyBtn: () => document.getElementById('copy-btn'),
     saveBtn: () => document.getElementById('save-btn'),
-    viewOutputBtn: () => document.getElementById('view-output-btn'), // Still need individual ID for button
+    viewOutputBtn: () => document.getElementById('view-output-btn'),
 
     // Modal elements
     imageModal: () => document.getElementById('image-modal'),
