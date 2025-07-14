@@ -7,10 +7,12 @@ export let state = {
     modelStatuses: {}, // e.g., { 'Xenova/d...': { status: 'found', selectedVariant: '...' } }
     activeModuleId: null,
 
+    // NEW: Add state for comparison mode
+    comparisonMode: 'none', // 'none', 'slide', 'hold'
+
     // Worker & Processing State
     isProcessing: false,
     outputData: null,
-    // MODIFIED: Add moduleId to downloadProgress for accurate tracking
     downloadProgress: {
         status: 'idle',
         moduleId: null,
@@ -75,4 +77,8 @@ export function toggleModelCollapsed(moduleId) {
     } else {
         state.collapsedModels.add(moduleId);
     }
+}
+
+export function setComparisonMode(mode) {
+    state.comparisonMode = mode;
 }

@@ -10,19 +10,25 @@ import {
     renderWorkbench,
     renderModelsList,
     renderStatus,
+    renderComparisonView,
+    redrawCompareCanvas,
+    showInputOnCanvas,
+    getImageBounds,
     openImageModal,
     closeImageModal,
 } from '../ui.js';
 import {
+    state,
     setActiveModuleId,
     setSelectedVariant,
     setRuntimeConfig,
     toggleModelCollapsed,
+    setComparisonMode,
 } from '../state.js';
 
-// Initializes all event listeners for the workbench.
+let isDraggingSlider = false;
+
 export function initWorkbenchEvents() {
-    // Make the handler async to allow `await` for renderWorkbench.
     document.body.addEventListener('click', async e => {
         const target = e.target;
 
@@ -39,7 +45,7 @@ export function initWorkbenchEvents() {
             const moduleId = btn.dataset.moduleId;
             setActiveModuleId(moduleId);
             renderModelsList();
-            await renderWorkbench(); // Await the async render function
+            await renderWorkbench();
         } else if (target.closest('.download-btn')) {
             const btn = target.closest('.download-btn');
             const moduleId = btn.dataset.moduleId;
@@ -64,6 +70,16 @@ export function initWorkbenchEvents() {
             target.id === 'image-modal'
         ) {
             closeImageModal();
+
+            // Comparison button clicks
+        } else if (target.closest('#compare-slide-btn')) {
+            const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
+            setComparisonMode(newMode);
+            await renderComparisonView();
+        } else if (target.closest('#compare-hold-btn')) {
+            const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
+            setComparisonMode(newMode);
+            await renderComparisonView();
         }
     });
 
@@ -96,10 +112,14 @@ export function initWorkbenchEvents() {
         }
     });
 
+    document.body.addEventListener('mousedown', handleCompareMouseDown);
+    document.body.addEventListener('mousemove', handleCompareMouseMove);
+    document.body.addEventListener('mouseup', handleCompareMouseUp);
+    document.body.addEventListener('mouseleave', handleCompareMouseUp);
+
     handleImageDropAreaEvents();
 }
 
-// Global event listeners (e.g., theme toggle)
 export function initGlobalEvents() {
     applySavedTheme();
 
@@ -144,10 +164,6 @@ function loadImageFile(file) {
 }
 
 function handleImageDropAreaEvents() {
-    // This needs to be called after the workbench is rendered.
-    // Since we're using event delegation on `body`, we can be more specific,
-    // but for now, we'll re-attach to the dropArea if it exists.
-    // The event listeners on `body` for click/change/input are more robust.
     const dropArea = dom.getImageDropArea();
     if (!dropArea) return;
 
@@ -187,4 +203,56 @@ function handleImageDropAreaEvents() {
 function preventDefaults(e) {
     e.preventDefault();
     e.stopPropagation();
+}
+
+// --- CLEANED UP: Comparison Event Handlers ---
+
+function handleCompareMouseDown(e) {
+    const slider = dom.imageCompareSlider();
+    const outputArea = dom.outputArea();
+
+    if (slider && e.target.closest('#image-compare-slider')) {
+        isDraggingSlider = true;
+        slider.classList.add('dragging');
+        e.preventDefault();
+    } else if (
+        outputArea &&
+        e.target.closest('.output-area') &&
+        state.comparisonMode === 'hold'
+    ) {
+        showInputOnCanvas();
+        e.preventDefault();
+    }
+}
+
+function handleCompareMouseMove(e) {
+    if (!isDraggingSlider) return;
+    e.preventDefault();
+
+    const outputArea = dom.outputArea();
+    if (!outputArea) return;
+
+    const imageBounds = getImageBounds();
+    const rect = outputArea.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    const position = Math.max(
+        imageBounds.x,
+        Math.min(imageBounds.x + imageBounds.width, mouseX)
+    );
+
+    const slider = dom.imageCompareSlider();
+    if (slider) slider.style.left = `${position}px`;
+
+    redrawCompareCanvas(position);
+}
+
+function handleCompareMouseUp() {
+    if (isDraggingSlider) {
+        const slider = dom.imageCompareSlider();
+        if (slider) slider.classList.remove('dragging');
+        isDraggingSlider = false;
+    } else if (state.comparisonMode === 'hold') {
+        renderComparisonView();
+    }
 }

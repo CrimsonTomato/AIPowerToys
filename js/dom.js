@@ -34,12 +34,21 @@ export const dom = {
     statusText: () => document.getElementById('status-text'),
     runInferenceBtn: () => document.getElementById('run-inference-btn'),
 
+    // NEW: Filename input
+    outputOptionsContainer: () =>
+        document.getElementById('output-options-container'),
+    outputFilenameInput: () => document.getElementById('output-filename-input'),
+
     // Selector for output-specific controls container
+    outputArea: () => document.querySelector('.output-area'),
     outputControls: () =>
         document.querySelector('.output-area .output-controls'),
     copyBtn: () => document.getElementById('copy-btn'),
     saveBtn: () => document.getElementById('save-btn'),
     viewOutputBtn: () => document.getElementById('view-output-btn'),
+    compareSlideBtn: () => document.getElementById('compare-slide-btn'),
+    compareHoldBtn: () => document.getElementById('compare-hold-btn'),
+    imageCompareSlider: () => document.getElementById('image-compare-slider'),
 
     // Modal elements
     imageModal: () => document.getElementById('image-modal'),

@@ -5,7 +5,7 @@ import {
     updateModelStatus,
     setDownloadProgress,
 } from '../state.js';
-import { renderStatus, renderOutputImage, renderModelsList } from '../ui.js'; // Ensure renderModelsList is imported
+import { renderStatus, renderModelsList } from '../ui.js';
 import { dom } from '../dom.js';
 import {
     checkAllModelsStatus,
@@ -14,7 +14,6 @@ import {
 
 let inferenceWorker;
 
-// Initializes the Web Worker.
 export function initWorker() {
     inferenceWorker = new Worker(
         new URL('../../workers/inference.worker.js', import.meta.url),
@@ -26,8 +25,7 @@ export function initWorker() {
         if (type === 'result') {
             setOutputData(data);
             setProcessing(false);
-            renderOutputImage();
-            renderStatus();
+            renderStatus(); // This is the only call needed to update the UI
         } else if (type === 'status') {
             const statusEl = dom.statusText();
             if (statusEl) statusEl.textContent = `Status: ${data}`;
@@ -46,7 +44,6 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
     const modelFiles = {};
     const repoDirName = activeModule.id.split('/')[1];
 
-    // 1. Get the main model file for the selected variant.
     const modelPath = `${repoDirName}/${selectedVariant.filename}`;
     const modelBuffer = await getFileBuffer(modelPath);
     if (!modelBuffer)
@@ -54,14 +51,12 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
     modelFiles[`/models/${activeModule.id}/${selectedVariant.filename}`] =
         modelBuffer;
 
-    // 2. Get all required config files from the manifest.
     for (const key of activeModule.config_files) {
         const configPath = `${repoDirName}/${key}`;
         const fileBuffer = await getFileBuffer(configPath);
         if (fileBuffer) {
             modelFiles[`/models/${activeModule.id}/${key}`] = fileBuffer;
         } else {
-            // This is a significant issue if a declared config file is missing.
             throw new Error(
                 `Manifest specified "${key}", but it was not found in the repository.`
             );
@@ -70,7 +65,6 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
     return modelFiles;
 }
 
-// Orchestrates running inference.
 export async function runInference(imageData) {
     const activeModule = state.modules.find(m => m.id === state.activeModuleId);
     const modelStatus = state.modelStatuses[state.activeModuleId];
@@ -95,26 +89,21 @@ export async function runInference(imageData) {
             );
         }
 
-        // Delegate file preparation to the helper function.
         const modelFiles = await _prepareModelFiles(
             activeModule,
             selectedVariant
         );
 
-        // Get the base options for the variant
         const baseOptions = selectedVariant.pipeline_options;
-        // Get the user's runtime settings for this model
         const userConfigs = state.runtimeConfigs[activeModule.id] || {};
-        // Merge them, with user configs taking priority
         const finalPipelineOptions = { ...baseOptions, ...userConfigs };
 
-        // Pass the prepared files and *final* options to the worker.
         inferenceWorker.postMessage({
             type: 'run',
             modelFiles: modelFiles,
             modelId: activeModule.id,
             task: activeModule.task,
-            pipelineOptions: finalPipelineOptions, // Pass the merged options
+            pipelineOptions: finalPipelineOptions,
             data: imageData,
         });
     } catch (error) {
@@ -125,12 +114,11 @@ export async function runInference(imageData) {
     }
 }
 
-// Handles the export functions
 export async function copyOutputToClipboard() {
     const canvas = dom.getOutputCanvas();
     if (!canvas) return;
 
-    const copyBtn = dom.copyBtn(); // Get button reference early for feedback
+    const copyBtn = dom.copyBtn();
 
     try {
         const blob = await new Promise(resolve =>
@@ -141,12 +129,11 @@ export async function copyOutputToClipboard() {
         ]);
         dom.statusText().textContent = 'Status: Image copied to clipboard!';
 
-        // Visual feedback for success
         if (copyBtn) {
             copyBtn.classList.add('btn-success-feedback');
             setTimeout(() => {
                 copyBtn.classList.remove('btn-success-feedback');
-            }, 1500); // Remove after 1.5 seconds
+            }, 1500);
         }
     } catch (error) {
         console.error('Failed to copy image:', error);
@@ -159,9 +146,8 @@ export async function copyOutputToClipboard() {
         }
         dom.statusText().textContent = `Status: ${errorMessage}`;
 
-        // Visual feedback for failure (can use a different class or color)
         if (copyBtn) {
-            copyBtn.classList.add('btn-failure-feedback'); // You'll define this in CSS
+            copyBtn.classList.add('btn-failure-feedback');
             setTimeout(() => {
                 copyBtn.classList.remove('btn-failure-feedback');
             }, 1500);
@@ -172,8 +158,12 @@ export async function copyOutputToClipboard() {
 export function saveOutputToFile() {
     const canvas = dom.getOutputCanvas();
     if (!canvas) return;
+
+    const filenameInput = dom.outputFilenameInput();
+    const filename = filenameInput?.value || 'ai-powertoys-output.png';
+
     const link = document.createElement('a');
-    link.download = 'depth-output.png';
+    link.download = filename;
     link.href = canvas.toDataURL('image/png');
     link.click();
 }
@@ -193,7 +183,6 @@ export async function downloadModel(moduleId) {
 
     updateModelStatus(moduleId, { status: 'downloading' });
 
-    // NEW: Set initial download status and current moduleId
     setDownloadProgress({
         status: 'downloading',
         moduleId: moduleId,
@@ -202,7 +191,7 @@ export async function downloadModel(moduleId) {
         filename: 'Fetching file list...',
     });
 
-    renderModelsList(); // Update UI to show downloading status immediately
+    renderModelsList();
 
     try {
         const api_url = `https://huggingface.co/api/models/${moduleId}`;
@@ -225,18 +214,12 @@ export async function downloadModel(moduleId) {
             const filePath = fileInfo.rfilename;
             count++;
 
-            // MODIFIED: We already have moduleId in state, just update the progress and filename
             setDownloadProgress({
                 progress: count,
                 total: filesToDownload.length,
                 filename: filePath,
             });
-
             renderModelsList();
-
-            console.log(
-                `Downloading ${count}/${filesToDownload.length}: ${filePath}`
-            );
 
             const pathParts = filePath.split('/');
             let currentHandle = moduleDirHandle;
@@ -248,7 +231,6 @@ export async function downloadModel(moduleId) {
                     );
                 }
             }
-
             const fileHandle = await currentHandle.getFileHandle(
                 pathParts[pathParts.length - 1],
                 { create: true }
@@ -263,19 +245,14 @@ export async function downloadModel(moduleId) {
             await writable.close();
         }
 
-        // MODIFIED: Reset download status on success
         setDownloadProgress({ status: 'idle', moduleId: null });
-
         dom.statusText().textContent = `Status: Model "${module.name}" downloaded successfully!`;
-        checkAllModelsStatus(); // This will update the model card status to 'found'
+        checkAllModelsStatus();
     } catch (error) {
         console.error('Download failed:', error);
-
-        // MODIFIED: Reset download status on failure
         setDownloadProgress({ status: 'idle', moduleId: null });
-
         dom.statusText().textContent = `Status: Download for "${module.name}" failed. ${error.message}`;
-        updateModelStatus(moduleId, { status: 'missing' }); // Reset status on failure
-        renderModelsList(); // Update UI to show missing status after failure
+        updateModelStatus(moduleId, { status: 'missing' });
+        renderModelsList();
     }
 }

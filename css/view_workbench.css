@@ -187,15 +187,15 @@ html.dark-mode .progress-bar-fill {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%; /* Ensure it fills the relative parent */
+    height: 100%;
     display: flex;
-    flex-direction: column; /* Default for placeholder */
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     margin: 0;
     box-sizing: border-box;
     padding: 10px;
-    overflow: hidden; /* Keep overflow on the content wrapper itself */
+    overflow: hidden;
 }
 
 /* Input Label and Placeholder */
@@ -207,22 +207,10 @@ html.dark-mode .progress-bar-fill {
     text-align: center;
     width: 100%;
     height: 100%;
-    display: flex; /* Make the label a flex container */
-    flex-direction: column; /* Stack children vertically */
-    align-items: center; /* Center horizontally */
-    justify-content: center; /* Center vertically */
-}
-
-/* Styles for the placeholder text directly */
-#image-input-placeholder {
-    /* Styles for the text */
-}
-
-#image-preview.hidden + #image-input-placeholder {
     display: flex;
-}
-#image-preview:not(.hidden) + #image-input-placeholder {
-    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 #image-preview,
@@ -231,14 +219,7 @@ html.dark-mode .progress-bar-fill {
     max-height: 100%;
     object-fit: contain;
     border-radius: var(--radius);
-    display: block; /* Ensure it behaves as a block element */
-}
-
-/* Ensure output content (canvas) is centered */
-.output-area .aspect-ratio-content-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
 }
 
 /* Output area specific adjustments */
@@ -246,8 +227,6 @@ html.dark-mode .progress-bar-fill {
     position: absolute;
     top: 10px;
     left: 10px;
-    width: auto;
-    height: auto;
     font-size: 0.9rem;
     color: var(--text-primary);
     background-color: var(--bg-primary);
@@ -257,31 +236,62 @@ html.dark-mode .progress-bar-fill {
     margin-bottom: 0;
 }
 
-/* Control groups for input/output (positioned at bottom-right, hidden by default) */
+/* Control groups for input/output */
 .input-controls,
-.output-controls {
+.output-controls,
+.output-view-controls {
     position: absolute;
-    bottom: 16px; /* Align with parent's padding */
-    right: 16px; /* Align with parent's padding */
-    flex-direction: row; /* Ensure buttons are in a row */
-    display: flex; /* Arrange buttons in a row */
-    gap: 8px; /* Space between buttons */
-    z-index: 2; /* Above image/canvas and label */
-    opacity: 0; /* Hidden by default */
-    pointer-events: none; /* Not clickable when hidden */
-    transition: none; 
+    bottom: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.output-controls {
+    right: 16px;
+}
+.output-view-controls {
+    left: 16px;
 }
 
-/* Show control groups on hover of their parent containers */
+/* Show control groups on hover */
 #image-drop-area:hover .input-controls,
-.output-area:hover .output-controls {
+.output-area:hover .output-controls,
+.output-area:hover .output-view-controls {
     opacity: 1;
     pointer-events: auto;
 }
+.output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary);
+    color: white;
+}
+html.dark-mode .output-view-controls .icon-btn.active {
+    color: var(--bg-primary);
+}
 
-/* Hide control groups when parent is explicitly hidden (e.g., during processing) */
-.hidden-on-hover-parent.hidden {
-    display: none !important;
+/* --- Comparison Slider (CLEANED UP) --- */
+#image-compare-slider {
+    position: absolute;
+    background-color: var(--accent-primary);
+    cursor: ew-resize;
+    transform: translateX(-2px); /* Center the 3px line */
+    z-index: 10;
+    pointer-events: all; /* Ensure it's always interactive */
+    width: 2px;
+}
+.slider-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 50px;
+    transform: translate(-50%, -50%);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .run-controls {
@@ -290,15 +300,15 @@ html.dark-mode .progress-bar-fill {
     align-items: center;
     gap: 16px;
 }
-
 .run-controls #status-text {
     flex-grow: 1;
     margin: 0;
     color: var(--text-secondary);
 }
 
-/* --- Runtime Controls --- */
-#runtime-controls-container {
+/* --- Runtime & Output Options --- */
+#runtime-controls-container,
+#output-options-container {
     background-color: var(--bg-secondary);
     border-radius: var(--radius);
     padding: 16px;
@@ -307,43 +317,23 @@ html.dark-mode .progress-bar-fill {
     flex-direction: column;
     gap: 12px;
 }
-
-#runtime-controls-container h4 {
+#runtime-controls-container h4,
+#output-options-container h4 {
     margin-bottom: 4px;
 }
-
-.runtime-control {
+.runtime-control,
+.output-option {
     display: grid;
     grid-template-columns: 180px 1fr;
     align-items: center;
     gap: 16px;
 }
-
-.runtime-control label {
+.runtime-control label,
+.output-option label {
     font-weight: 500;
     font-size: 0.9rem;
 }
-
 .runtime-control label span {
     font-weight: 600;
     color: var(--text-primary);
-}
-
-/* This rule appears twice; consolidate for clarity if needed.
-   Currently, the one above (`#image-drop-area > .aspect-ratio-content-wrapper, ...`)
-   is the effective one. */
-#image-drop-area .aspect-ratio-content-wrapper,
-.output-area .aspect-ratio-content-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    box-sizing: border-box;
-    padding: 10px;
 }

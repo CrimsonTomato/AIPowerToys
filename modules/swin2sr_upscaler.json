@@ -9,5 +9,6 @@
         "workbench_output": "/components/workbench/image_output.html"
     },
     "config_files": ["config.json", "preprocessor_config.json"],
-    "configurable_params": []
+    "configurable_params": [],
+    "default_filename": "upscaled-output.png"
 }

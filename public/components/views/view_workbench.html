@@ -16,6 +16,14 @@
             <button id="run-inference-btn" disabled>Run Inference</button>
             <p id="status-text">Status: Select a model and image.</p>
         </div>
+
+        <!-- NEW: Container for output options like filename -->
+        <div id="output-options-container" class="hidden">
+            <div class="output-option">
+                <label for="output-filename-input">Save Filename:</label>
+                <input type="text" id="output-filename-input" class="form-input">
+            </div>
+        </div>
     </div>
 
     <!-- MODAL STRUCTURE (Unchanged) -->
