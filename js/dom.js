@@ -7,6 +7,8 @@ export const dom = {
     leftSidebar: () => document.getElementById('left-sidebar'),
     connectFolderBtn: () => document.getElementById('connect-folder-btn'),
     currentFolderPath: () => document.getElementById('current-folder-path'),
+    gpuStatusText: () => document.getElementById('gpu-status-text'),
+    gpuToggleBtn: () => document.getElementById('gpu-toggle-btn'),
     modelsList: () => document.getElementById('models-list'),
     themeToggleBtn: () => document.getElementById('theme-toggle-btn'),
     themeIconSun: () => document.getElementById('theme-icon-sun'),
@@ -17,6 +19,7 @@ export const dom = {
     workbenchArea: () => document.getElementById('workbench-area'),
     workbenchInputArea: () => document.getElementById('workbench-input-area'),
     workbenchOutputArea: () => document.getElementById('workbench-output-area'),
+    inferenceTimer: () => document.getElementById('inference-timer'),
     runtimeControlsContainer: () =>
         document.getElementById('runtime-controls-container'),
     outputOptionsContainer: () =>

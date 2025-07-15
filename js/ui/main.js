@@ -3,6 +3,8 @@ import { state } from '../state.js';
 import { renderModelsList } from './models.js';
 import { renderComparisonView } from './workbench.js';
 
+let timerInterval = null;
+
 export async function renderApp() {
     // Inject the sidebar HTML
     const appContainer = dom.appContainer();
@@ -26,10 +28,37 @@ export async function renderApp() {
     renderModelsList();
 }
 
+export function renderGpuStatus() {
+    const statusEl = dom.gpuStatusText();
+    const toggleBtn = dom.gpuToggleBtn();
+    if (!statusEl || !toggleBtn) return;
+
+    if (state.gpuSupported) {
+        statusEl.textContent = 'WebGPU supported and available.';
+        toggleBtn.disabled = false;
+        if (state.useGpu) {
+            toggleBtn.textContent = 'GPU: ON';
+            toggleBtn.classList.add('btn-primary');
+            toggleBtn.classList.remove('btn-secondary');
+        } else {
+            toggleBtn.textContent = 'GPU: OFF';
+            toggleBtn.classList.remove('btn-primary');
+            toggleBtn.classList.add('btn-secondary');
+        }
+    } else {
+        statusEl.textContent = 'WebGPU not supported by this browser/device.';
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = 'GPU: N/A';
+        toggleBtn.classList.remove('btn-primary');
+        toggleBtn.classList.add('btn-secondary');
+    }
+}
+
 export function renderStatus() {
     const statusEl = dom.statusText();
     const runBtn = dom.runInferenceBtn();
-    if (!statusEl || !runBtn) return;
+    const timerEl = dom.inferenceTimer();
+    if (!statusEl || !runBtn || !timerEl) return;
 
     const copyBtn = dom.copyBtn();
     const saveBtn = dom.saveBtn();
@@ -65,7 +94,18 @@ export function renderStatus() {
         if (viewOutputBtn) viewOutputBtn.disabled = true;
         if (compareSlideBtn) compareSlideBtn.disabled = true;
         if (compareHoldBtn) compareHoldBtn.disabled = true;
+
+        timerEl.classList.remove('hidden');
+        if (!timerInterval) {
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - state.inferenceStartTime) / 1000;
+                timerEl.textContent = `Time: ${elapsed.toFixed(2)}s`;
+            }, 100);
+        }
     } else {
+        clearInterval(timerInterval);
+        timerInterval = null;
+
         let statusMessage = 'Status: ';
         const activeModule = state.modules.find(
             m => m.id === state.activeModuleId
@@ -84,6 +124,15 @@ export function renderStatus() {
 
         runBtn.disabled = !state.activeModuleId || !imageReady;
         runBtn.textContent = 'Run Inference';
+
+        // Display final time if available
+        if (state.inferenceDuration !== null) {
+            timerEl.classList.remove('hidden');
+            const finalTime = state.inferenceDuration / 1000;
+            timerEl.textContent = `Finished in ${finalTime.toFixed(2)}s`;
+        } else {
+            timerEl.classList.add('hidden');
+        }
 
         // The button disabling logic remains correct.
         if (copyBtn) copyBtn.disabled = !outputReady;

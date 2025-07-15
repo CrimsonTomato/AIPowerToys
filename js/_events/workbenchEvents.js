@@ -1,4 +1,3 @@
-// workbenchEvents.js
 import { dom } from '../dom.js';
 import {
     runInference,
@@ -16,6 +15,7 @@ import {
     closeImageModal,
     applySidebarWidth,
     applyTheme,
+    renderGpuStatus,
 } from '../ui/main.js';
 import { renderModelsList, handleSearch } from '../ui/models.js';
 import {
@@ -35,6 +35,7 @@ import {
     toggleModelStarred,
     setSidebarWidth,
     setTheme,
+    setUseGpu,
 } from '../state.js';
 let isDraggingSlider = false;
 let isResizingSidebar = false;
@@ -171,6 +172,13 @@ async function handleToggleTheme() {
     // --- END ALREADY PRESENT ---
 }
 
+async function handleToggleGpu() {
+    if (!state.gpuSupported) return;
+    setUseGpu(!state.useGpu);
+    renderGpuStatus();
+    saveAppState();
+}
+
 async function handleResetSidebar() {
     setSidebarWidth(500);
     applySidebarWidth();
@@ -198,6 +206,7 @@ const clickHandlers = {
     '#compare-slide-btn': handleToggleSlideCompare,
     '#compare-hold-btn': handleToggleHoldCompare,
     '#theme-toggle-btn': handleToggleTheme,
+    '#gpu-toggle-btn': handleToggleGpu,
     '#reset-sidebar-btn': handleResetSidebar,
 };
 

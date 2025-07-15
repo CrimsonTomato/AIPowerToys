@@ -7,13 +7,15 @@ import {
     setModelOrder,
     setTheme,
     updateModelStatus,
-    setCollapsedModels
+    setCollapsedModels,
+    setUseGpu,
 } from '../state.js';
 import { renderModelsList } from '../ui/models.js';
 import {
     renderFolderConnectionStatus,
     applyTheme,
     applySidebarWidth,
+    renderGpuStatus,
 } from '../ui/main.js';
 
 const DIRECTORY_HANDLE_KEY = 'modelsDirectoryHandle';
@@ -256,6 +258,11 @@ async function loadAppState() {
         setSidebarWidth(savedState.sidebarWidth || 500);
         // Load theme
         setTheme(savedState.theme || 'light');
+        // Load GPU preference. Only override default if a preference is saved
+        // AND the GPU is supported by the browser.
+        if (state.gpuSupported && typeof savedState.useGpu !== 'undefined') {
+            setUseGpu(savedState.useGpu);
+        }
         // Load starred models (convert back to Set)
         setStarredModels(new Set(savedState.starredModels || []));
         // Load model order
@@ -304,6 +311,7 @@ export async function saveAppState() {
     const appState = {
         sidebarWidth: state.sidebarWidth,
         theme: state.theme,
+        useGpu: state.useGpu,
         starredModels: Array.from(state.starredModels), // Convert Set to Array for saving
         modelOrder: state.modelOrder,
         collapsedModels: Array.from(state.collapsedModels), // Convert collapsed Set to Array for saving

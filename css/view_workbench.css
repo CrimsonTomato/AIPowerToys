@@ -163,6 +163,18 @@
     flex-direction: column;
     gap: 24px;
 }
+.workbench-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: -15px; /* Pull the main area up */
+}
+#inference-timer {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums; /* Prevents text from jumping as numbers change */
+}
 #workbench-main-area {
     display: grid;
     grid-template-columns: 1fr 1fr;

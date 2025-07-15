@@ -4,6 +4,8 @@ export let state = {
     modules: [],
     sidebarWidth: 500, // Default width
     theme: 'light', // 'light' or 'dark'
+    gpuSupported: false,
+    useGpu: false,
 
     // Model & UI State
     modelStatuses: {},
@@ -15,6 +17,8 @@ export let state = {
     // Worker & Processing State
     isProcessing: false,
     outputData: null,
+    inferenceStartTime: null,
+    inferenceDuration: null,
     downloadProgress: {
         status: 'idle',
         moduleId: null,
@@ -40,6 +44,12 @@ export function setSidebarWidth(width) {
 export function setTheme(theme) {
     state.theme = theme;
 }
+export function setGpuSupported(isSupported) {
+    state.gpuSupported = isSupported;
+}
+export function setUseGpu(shouldUse) {
+    state.useGpu = shouldUse;
+}
 export function updateModelStatus(moduleId, statusObject) {
     state.modelStatuses[moduleId] = {
         ...state.modelStatuses[moduleId],
@@ -59,6 +69,12 @@ export function setProcessing(isProcessing) {
 }
 export function setOutputData(data) {
     state.outputData = data;
+}
+export function setInferenceStartTime(time) {
+    state.inferenceStartTime = time;
+}
+export function setInferenceDuration(duration) {
+    state.inferenceDuration = duration;
 }
 export function setDownloadProgress(progress) {
     state.downloadProgress = { ...state.downloadProgress, ...progress };

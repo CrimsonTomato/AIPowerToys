@@ -1,5 +1,9 @@
-import { setModules } from './state.js';
-import { renderApp, renderFolderConnectionStatus } from './ui/main.js';
+import { setModules, setGpuSupported, setUseGpu } from './state.js';
+import {
+    renderApp,
+    renderFolderConnectionStatus,
+    renderGpuStatus,
+} from './ui/main.js';
 import { renderModelsList } from './ui/models.js';
 import { renderWorkbench } from './ui/workbench.js';
 import { initWorker } from './_controllers/modelController.js';
@@ -36,13 +40,25 @@ async function loadAllModules() {
 }
 
 async function main() {
+    // Check for GPU support first and set the default state.
+    const isGpuSupported = 'gpu' in navigator;
+    setGpuSupported(isGpuSupported);
+    setUseGpu(isGpuSupported); // Default to ON if supported
+
     const allModules = await loadAllModules();
     setModules(allModules);
 
     await renderApp(); // Renders the main shell and models list
 
-    await loadDirectoryHandle(); // This also loads saved state like theme/sidebar
+    // This needs to be called after renderApp() so the elements exist.
+    renderGpuStatus();
+
+    // This loads saved state (like theme/sidebar/useGpu) and re-checks models
+    await loadDirectoryHandle();
     renderFolderConnectionStatus();
+
+    // Re-render GPU status in case the loaded state changed the preference
+    renderGpuStatus();
 
     initWorker();
     initWorkbenchEvents();

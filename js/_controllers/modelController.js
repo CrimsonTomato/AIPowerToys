@@ -4,6 +4,8 @@ import {
     setOutputData,
     updateModelStatus,
     setDownloadProgress,
+    setInferenceStartTime,
+    setInferenceDuration,
 } from '../state.js';
 import { dom } from '../dom.js';
 import {
@@ -24,6 +26,8 @@ export function initWorker() {
     inferenceWorker.onmessage = e => {
         const { type, data } = e.data;
         if (type === 'result') {
+            const duration = Date.now() - state.inferenceStartTime;
+            setInferenceDuration(duration);
             setOutputData(data);
             setProcessing(false);
             renderStatus(); // This is the only call needed to update the UI
@@ -78,6 +82,8 @@ export async function runInference(imageData) {
         return;
 
     setProcessing(true);
+    setInferenceStartTime(Date.now());
+    setInferenceDuration(null); // Clear previous duration
     renderStatus();
 
     try {
@@ -97,12 +103,20 @@ export async function runInference(imageData) {
 
         const baseOptions = selectedVariant.pipeline_options;
         const userConfigs = state.runtimeConfigs[activeModule.id] || {};
-        const finalPipelineOptions = { ...baseOptions, ...userConfigs };
+        const device = state.useGpu ? 'webgpu' : 'wasm';
+        const finalPipelineOptions = {
+            ...baseOptions,
+            ...userConfigs,
+            device: device,
+        };
+
+        const onnxModelPath = selectedVariant.filename;
 
         inferenceWorker.postMessage({
             type: 'run',
             modelFiles: modelFiles,
             modelId: activeModule.id,
+            onnxModelPath: onnxModelPath, // Pass the specific model path to the worker
             task: activeModule.task,
             pipelineOptions: finalPipelineOptions,
             data: imageData,
@@ -111,6 +125,7 @@ export async function runInference(imageData) {
         console.error('Error preparing for inference:', error);
         dom.statusText().textContent = `Error: ${error.message}`;
         setProcessing(false);
+        setInferenceStartTime(null);
         renderStatus();
     }
 }
