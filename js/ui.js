@@ -155,7 +155,7 @@ function renderRuntimeControls() {
     if (!container) return;
 
     const activeModule = state.modules.find(m => m.id === state.activeModuleId);
-    if (!activeModule || !activeModule.configurable_params) {
+    if (!activeModule || !activeModule.configurable_params?.length) {
         container.innerHTML = '';
         return;
     }
@@ -167,21 +167,24 @@ function renderRuntimeControls() {
         activeModule.configurable_params
             .map(param => {
                 const currentValue = currentConfigs[param.id] ?? param.default;
+
                 if (param.type === 'slider') {
                     return `
                 <div class="runtime-control">
                     <label for="param-${param.id}">${param.name}: <span id="param-val-${param.id}">${currentValue}</span></label>
-                    <input type="range"
-                           id="param-${param.id}"
-                           data-param-id="${param.id}"
-                           data-module-id="${activeModule.id}"
-                           min="${param.min}"
-                           max="${param.max}"
-                           step="${param.step}"
-                           value="${currentValue}"
-                    >
-                </div>
-            `;
+                    <input type="range" id="param-${param.id}" data-param-id="${param.id}" data-module-id="${activeModule.id}" min="${param.min}" max="${param.max}" step="${param.step}" value="${currentValue}">
+                </div>`;
+                }
+                else if (param.type === 'checkbox') {
+                    return `
+                <div class="runtime-control checkbox-control">
+                    <label for="param-${param.id}">${param.name}</label>
+                    <input type="checkbox" id="param-${
+                        param.id
+                    }" data-param-id="${param.id}" data-module-id="${
+                        activeModule.id
+                    }" ${currentValue ? 'checked' : ''}>
+                </div>`;
                 }
                 return '';
             })

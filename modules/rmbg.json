@@ -1,0 +1,21 @@
+{
+    "id": "briaai/RMBG-1.4",
+    "name": "Background Remover (RMBG)",
+    "author": "briaai",
+    "task": "image-segmentation",
+    "description": "A high-quality background removal model. Uncheck 'Return Mask' to get a transparent PNG.",
+    "ui_components": {
+        "workbench_input": "/components/workbench/image_input.html",
+        "workbench_output": "/components/workbench/image_output.html"
+    },
+    "config_files": ["config.json", "preprocessor_config.json"],
+    "configurable_params": [
+        {
+            "id": "return_mask",
+            "name": "Return Mask",
+            "type": "checkbox",
+            "default": false
+        }
+    ],
+    "default_filename": "background-removed.png"
+}

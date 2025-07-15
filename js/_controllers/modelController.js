@@ -169,8 +169,8 @@ export function saveOutputToFile() {
 }
 
 /**
- * Downloads a model repository from Hugging Face to the user's selected directory.
- * @param {string} moduleId - The ID of the model to download (e.g., 'Xenova/depth-anything-small-hf').
+ * Downloads a model repository from Hugging Face, but only includes .onnx and .json files.
+ * @param {string} moduleId - The ID of the model to download.
  */
 export async function downloadModel(moduleId) {
     if (!state.directoryHandle) {
@@ -182,7 +182,6 @@ export async function downloadModel(moduleId) {
     if (!module) return;
 
     updateModelStatus(moduleId, { status: 'downloading' });
-
     setDownloadProgress({
         status: 'downloading',
         moduleId: moduleId,
@@ -190,7 +189,6 @@ export async function downloadModel(moduleId) {
         total: 0,
         filename: 'Fetching file list...',
     });
-
     renderModelsList();
 
     try {
@@ -201,7 +199,20 @@ export async function downloadModel(moduleId) {
                 `Failed to fetch model info from Hugging Face API. Status: ${response.status}`
             );
         const modelInfo = await response.json();
-        const filesToDownload = modelInfo.siblings;
+
+        // --- MODIFICATION START ---
+        // Filter the file list to only include .onnx and .json files
+        const filesToDownload = modelInfo.siblings.filter(fileInfo => {
+            const filename = fileInfo.rfilename.toLowerCase();
+            return filename.endsWith('.onnx') || filename.endsWith('.json');
+        });
+        // --- MODIFICATION END ---
+
+        if (filesToDownload.length === 0) {
+            throw new Error(
+                'No .onnx or .json files found in the model repository.'
+            );
+        }
 
         const dirName = moduleId.split('/')[1];
         const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
@@ -239,7 +250,6 @@ export async function downloadModel(moduleId) {
             const downloadUrl = `https://huggingface.co/${moduleId}/resolve/main/${filePath}`;
             const fileResponse = await fetch(downloadUrl);
             const fileBlob = await fileResponse.blob();
-
             const writable = await fileHandle.createWritable();
             await writable.write(fileBlob);
             await writable.close();

@@ -50,21 +50,18 @@ self.onmessage = async e => {
             // The pipeline call now works because the cache is ready.
             currentPipeline = await pipeline(task, modelId, pipelineOptions);
             currentModelId = modelId;
-
             self.postMessage({
                 type: 'status',
                 data: 'Model loaded. Ready for inference.',
             });
 
             self.postMessage({ type: 'status', data: 'Running inference...' });
-            const output = await currentPipeline(data);
+            const output = await currentPipeline(data, pipelineOptions);
 
-            // --- REFACTORED POST-PROCESSING ---
             self.postMessage({
                 type: 'status',
                 data: 'Post-processing result...',
             });
-
             const postProcess = taskHandlers[task];
             if (!postProcess) {
                 throw new Error(
@@ -72,7 +69,9 @@ self.onmessage = async e => {
                 );
             }
 
-            const renderable = postProcess(output);
+            // Pass the original data (inputUrl) and options to the handler
+            const renderable = await postProcess(output, data, pipelineOptions);
+
             self.postMessage({ type: 'result', data: renderable });
         } catch (error) {
             console.error(error);

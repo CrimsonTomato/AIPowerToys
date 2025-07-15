@@ -96,6 +96,13 @@ export function initWorkbenchEvents() {
             setSelectedVariant(moduleId, variantName);
             renderStatus();
         }
+        // --- NEW: Handle checkbox changes ---
+        else if (target.matches('.runtime-control input[type="checkbox"]')) {
+            const moduleId = target.dataset.moduleId;
+            const paramId = target.dataset.paramId;
+            const value = target.checked; // Get boolean value
+            setRuntimeConfig(moduleId, paramId, value);
+        }
     });
 
     document.body.addEventListener('input', e => {
