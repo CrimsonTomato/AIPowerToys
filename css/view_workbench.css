@@ -1,3 +1,5 @@
+/* --- VIEW_WORKBENCH.CSS --- */
+
 /*
   Styles specific to the AI PowerToys workbench view.
 */
@@ -8,7 +10,6 @@
     grid-template-columns: 1fr;
     gap: 12px;
 }
-
 .model-card {
     background-color: var(--bg-tertiary);
     padding: 12px;
@@ -17,16 +18,14 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition: none;
     overflow: hidden;
+    cursor: pointer;
 }
-
 .model-card p {
     margin: 0 0 8px 0;
     font-size: 0.85rem;
     line-height: 1.4;
 }
-
 .status-found {
     color: var(--status-found-color);
     font-weight: 600;
@@ -38,26 +37,31 @@
     font-size: 0.8rem;
 }
 
-/* Progress Bar Styles */
-.progress-bar-container {
-    width: 100%;
-    height: 10px;
-    background-color: #e0e0e0;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: 6px;
+/* --- Model Card States --- */
+.model-card[data-active='true'] {
+    background-color: var(--bg-primary);
+    border: 2px solid var(--accent-primary);
+    padding: 11px;
 }
-.progress-bar-fill {
-    height: 100%;
-    background-color: #4caf50;
-    width: 0%;
-    transition: width 0.3s ease-out;
+.model-card[data-active='true'] .model-card-header {
+    cursor: default;
 }
-html.dark-mode .progress-bar-container {
-    background-color: #333;
+.model-card[data-collapsed='true'][data-status='missing'] {
+    background-color: var(--status-missing-bg-faded);
+    border-color: var(--status-missing-color);
 }
-html.dark-mode .progress-bar-fill {
-    background-color: #66bb6a;
+.model-card[data-collapsed='true'][data-status='found'] {
+    background-color: var(--status-found-bg-faded);
+    border-color: var(--status-found-color);
+}
+
+/* SortableJS Classes */
+.model-card.sortable-ghost {
+    opacity: 0.4;
+    background-color: var(--accent-primary-translucent);
+}
+.model-card.sortable-chosen {
+    cursor: grabbing;
 }
 
 /* --- Model Card Header & Toggle --- */
@@ -66,13 +70,16 @@ html.dark-mode .progress-bar-fill {
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    cursor: pointer;
 }
 .model-card-header h3 {
     margin: 0;
     flex-grow: 1;
     font-size: 1.1rem;
     pointer-events: none;
+}
+.model-card .star-btn {
+    margin-left: -4px;
+    margin-right: 4px;
 }
 .model-card-toggle-btn {
     width: 24px;
@@ -81,22 +88,24 @@ html.dark-mode .progress-bar-fill {
     background: none;
     border: none;
     color: var(--text-secondary);
-    transition: none;
     flex-shrink: 0;
     cursor: pointer;
 }
 .model-card-toggle-btn:hover {
     color: var(--text-primary);
 }
-.model-card-toggle-btn svg {
-    width: 20px;
-    height: 20px;
+.model-card-toggle-btn .material-icons {
+    width: 24px;
+    height: 24px;
     pointer-events: none;
 }
 
-/* --- Collapsed State --- */
+/* Collapsed State */
 .model-card[data-collapsed='true'] {
     gap: 0;
+}
+.model-card-content {
+    overflow: hidden;
 }
 .model-card[data-collapsed='true'] .model-card-content {
     max-height: 0;
@@ -104,20 +113,9 @@ html.dark-mode .progress-bar-fill {
     margin: 0;
     padding: 0;
     pointer-events: none;
-    overflow: hidden;
 }
 .model-card[data-collapsed='true'] .model-card-toggle-btn {
     transform: rotate(-90deg);
-}
-
-/* --- Active Model State --- */
-.model-card[data-active='true'] {
-    background-color: var(--bg-primary);
-    border: 2px solid var(--accent-primary);
-    padding: 11px;
-}
-.model-card[data-active='true'] .model-card-header {
-    cursor: default;
 }
 
 /* --- Model Controls --- */
@@ -130,31 +128,47 @@ html.dark-mode .progress-bar-fill {
 .model-controls .variant-selector {
     flex-grow: 1;
     font-size: 0.8rem;
-    padding: 6px 10px;
 }
 .model-controls .select-model-btn,
 .model-controls .download-btn {
     padding: 6px 12px;
     font-size: 0.8rem;
     flex-shrink: 0;
+    height: 33px;
+}
+
+/* --- Progress Bar for Downloads --- */
+.progress-bar-container {
+    height: 8px;
+    width: 100%;
+    background-color: var(--bg-primary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--accent-primary);
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.1s linear;
 }
 
 /* --- Workbench Area --- */
 #workbench-area {
-    margin-top: 24px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
-
-/* Two-column layout for main workbench content */
 #workbench-main-area {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    grid-template-columns: 1fr 1fr;
     gap: 24px;
-    margin-top: 24px;
+    margin-top: -15px;
 }
-
 .workbench-column {
     display: flex;
     flex-direction: column;
@@ -167,20 +181,16 @@ html.dark-mode .progress-bar-fill {
     padding: 16px;
     border: 1px dashed var(--border-color);
     border-radius: var(--radius);
-
     position: relative;
     width: 100%;
-    padding-bottom: 65%; /* Aspect ratio: 16:10 */
+    padding-bottom: 65%; /* Maintain aspect ratio */
     min-height: 200px;
     transition: background-color 0.1s ease-out, border-color 0.1s ease-out;
 }
-
 #image-drop-area:hover:not(.drag-over) {
     background-color: var(--bg-secondary);
     border-color: var(--text-secondary);
 }
-
-/* Common positioning for content inside aspect-ratio containers */
 #image-drop-area > .aspect-ratio-content-wrapper,
 .output-area > .aspect-ratio-content-wrapper {
     position: absolute;
@@ -197,8 +207,6 @@ html.dark-mode .progress-bar-fill {
     padding: 10px;
     overflow: hidden;
 }
-
-/* Input Label and Placeholder */
 .image-input-label {
     cursor: pointer;
     color: var(--text-secondary);
@@ -212,7 +220,6 @@ html.dark-mode .progress-bar-fill {
     align-items: center;
     justify-content: center;
 }
-
 #image-preview,
 #output-canvas {
     max-width: 100%;
@@ -221,8 +228,6 @@ html.dark-mode .progress-bar-fill {
     border-radius: var(--radius);
     display: block;
 }
-
-/* Output area specific adjustments */
 .output-label {
     position: absolute;
     top: 10px;
@@ -249,37 +254,51 @@ html.dark-mode .progress-bar-fill {
     pointer-events: none;
     transition: opacity 0.2s;
 }
+.input-controls {
+    right: 16px;
+}
 .output-controls {
     right: 16px;
 }
 .output-view-controls {
     left: 16px;
 }
-
-/* Show control groups on hover */
-#image-drop-area:hover .input-controls,
-.output-area:hover .output-controls,
-.output-area:hover .output-view-controls {
+#image-drop-area[data-controls-visible='true'] .input-controls,
+.output-area[data-controls-visible='true'] .output-controls,
+.output-area[data-controls-visible='true'] .output-view-controls {
     opacity: 1;
     pointer-events: auto;
 }
 .output-view-controls .icon-btn.active {
-    background-color: var(--accent-primary);
-    color: white;
+    background-color: var(--accent-primary-translucent);
+    color: var(--accent-primary);
 }
 html.dark-mode .output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary);
     color: var(--bg-primary);
 }
 
-/* --- Comparison Slider (CLEANED UP) --- */
+/* --- Run Controls --- */
+.run-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.run-controls #status-text {
+    flex-grow: 1;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* --- Comparison Slider --- */
 #image-compare-slider {
     position: absolute;
-    background-color: var(--accent-primary);
+    width: 3px;
+    background-color: var(--accent-primary-translucent);
     cursor: ew-resize;
-    transform: translateX(-2px); /* Center the 3px line */
+    transform: translateX(-1.5px);
     z-index: 10;
-    pointer-events: all; /* Ensure it's always interactive */
-    width: 2px;
+    pointer-events: all;
 }
 .slider-handle {
     position: absolute;
@@ -294,39 +313,24 @@ html.dark-mode .output-view-controls .icon-btn.active {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-.run-controls {
-    margin-top: 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.run-controls #status-text {
-    flex-grow: 1;
-    margin: 0;
-    color: var(--text-secondary);
-}
-
 /* --- Runtime & Output Options --- */
 #runtime-controls-container,
 #output-options-container {
     background-color: var(--bg-secondary);
     border-radius: var(--radius);
     padding: 16px;
-    margin-top: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-#runtime-controls-container h4,
-#output-options-container h4 {
-    margin-bottom: 4px;
 }
 .runtime-control,
 .output-option {
     display: grid;
-    grid-template-columns: 180px 1fr;
+    grid-template-columns: 180px 1fr; /* Default: Label column, Input column */
     align-items: center;
     gap: 16px;
+    margin-bottom: 12px;
+}
+.runtime-control:last-child,
+.output-option:last-child {
+    margin-bottom: 0;
 }
 .runtime-control label,
 .output-option label {
@@ -336,4 +340,26 @@ html.dark-mode .output-view-controls .icon-btn.active {
 .runtime-control label span {
     font-weight: 600;
     color: var(--text-primary);
+}
+
+/* Checkbox specific adjustments */
+.runtime-control.checkbox-control {
+    grid-template-columns: 1fr auto; /* Label takes 1fr, input takes auto */
+}
+
+/* --- Two-column layout for runtime controls --- */
+#runtime-controls-container.has-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Container becomes a 2-column grid */
+    gap: 0 24px;
+    align-items: start; /* Align the columns themselves */
+}
+#runtime-controls-container.has-two-columns > h4 {
+    grid-column: 1 / -1; /* Title spans both columns */
+    margin-bottom: 4px;
+}
+.runtime-column {
+    display: grid;
+    grid-auto-rows: min-content;
+    gap: 16px;
 }

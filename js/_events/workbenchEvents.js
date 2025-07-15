@@ -1,3 +1,4 @@
+// workbenchEvents.js
 import { dom } from '../dom.js';
 import {
     runInference,
@@ -5,18 +6,25 @@ import {
     saveOutputToFile,
     downloadModel,
 } from '../_controllers/modelController.js';
-import { connectToDirectory } from '../_controllers/fileSystemController.js';
+import {
+    connectToDirectory,
+    saveAppState,
+} from '../_controllers/fileSystemController.js';
+import {
+    renderStatus,
+    openImageModal,
+    closeImageModal,
+    applySidebarWidth,
+    applyTheme,
+} from '../ui/main.js';
+import { renderModelsList, handleSearch } from '../ui/models.js';
 import {
     renderWorkbench,
-    renderModelsList,
-    renderStatus,
     renderComparisonView,
     redrawCompareCanvas,
     showInputOnCanvas,
     getImageBounds,
-    openImageModal,
-    closeImageModal,
-} from '../ui.js';
+} from '../ui/workbench.js';
 import {
     state,
     setActiveModuleId,
@@ -24,83 +32,205 @@ import {
     setRuntimeConfig,
     toggleModelCollapsed,
     setComparisonMode,
+    toggleModelStarred,
+    setSidebarWidth,
+    setTheme,
 } from '../state.js';
-
 let isDraggingSlider = false;
+let isResizingSidebar = false;
+
+// --- Click Event Handlers ---
+
+async function handleConnectFolder() {
+    connectToDirectory();
+}
+
+// Handles clicks specifically on the chevron button to toggle collapse/expand.
+async function handleToggleModelCollapse(e, element) {
+    e.stopPropagation(); // CRITICAL: Prevent the click event from bubbling up to the parent '.model-card' handler.
+    const moduleId = element.dataset.moduleId;
+    if (!moduleId) return;
+    toggleModelCollapsed(moduleId);
+    renderModelsList();
+    // --- NEW: Persist the change ---
+    saveAppState();
+    // --- END NEW ---
+}
+
+// Handles clicks on the star icon to toggle starred status.
+async function handleStarClick(e, element) {
+    e.stopPropagation(); // CRITICAL: Prevent the click event from bubbling up to the parent '.model-card' handler.
+    const moduleId = element.dataset.moduleId;
+    if (!moduleId) return;
+    toggleModelStarred(moduleId);
+    renderModelsList();
+    // --- ALREADY PRESENT: Persist the change ---
+    saveAppState();
+    // --- END ALREADY PRESENT ---
+}
+
+// Handles clicks on the "Use Model" button to select and activate a model.
+async function handleUseModel(e, element) {
+    e.stopPropagation();
+    const moduleId = element.dataset.moduleId;
+    if (!moduleId) return;
+    if (state.activeModuleId !== moduleId) {
+        setActiveModuleId(moduleId);
+        renderModelsList();
+        await renderWorkbench();
+        renderStatus();
+    }
+}
+
+// Handles downloading a model.
+async function handleDownloadModel(e, element) {
+    e.stopPropagation();
+    const moduleId = element.dataset.moduleId;
+    if (!moduleId) return;
+    downloadModel(moduleId);
+}
+
+// Handles clicks on the main card body (title, description, etc.)
+async function handleSelectCard(e, element) {
+    const clickedElement = e.target;
+    const moduleId = element.dataset.moduleId;
+
+    // GUARD CLAUSE: If the click was on any element that has its own dedicated handler, exit.
+    if (
+        clickedElement.closest('.star-btn') ||
+        clickedElement.closest('.model-card-toggle-btn') ||
+        clickedElement.closest('.select-model-btn') ||
+        clickedElement.closest('.download-btn')
+    ) {
+        return;
+    }
+
+    // Handle clicks on the general card body (title, description, etc.)
+    const isCollapsed = element.dataset.collapsed === 'true';
+
+    if (isCollapsed) {
+        // If collapsed, expand the card.
+        toggleModelCollapsed(moduleId);
+        renderModelsList();
+        // --- NEW: Persist the change ---
+        saveAppState();
+        // --- END NEW ---
+    } else {
+        // If expanded, activate the module.
+        if (state.activeModuleId === moduleId) return;
+        setActiveModuleId(moduleId);
+        renderModelsList();
+        await renderWorkbench();
+        renderStatus();
+    }
+}
+
+async function handleRunInference() {
+    const imageData = dom.getImagePreview()?.src;
+    runInference(imageData);
+}
+
+async function handleCopyOutput() {
+    copyOutputToClipboard();
+}
+
+async function handleSaveOutput() {
+    saveOutputToFile();
+}
+
+async function handleViewInput() {
+    openImageModal('input');
+}
+
+async function handleViewOutput() {
+    openImageModal('output');
+}
+
+async function handleCloseModal(e) {
+    closeImageModal();
+}
+
+async function handleToggleSlideCompare() {
+    const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
+    setComparisonMode(newMode);
+    await renderComparisonView();
+}
+
+async function handleToggleHoldCompare() {
+    const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
+    setComparisonMode(newMode);
+    await renderComparisonView();
+}
+
+async function handleToggleTheme() {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    applyTheme();
+    // --- ALREADY PRESENT: Persist the change ---
+    saveAppState();
+    // --- END ALREADY PRESENT ---
+}
+
+async function handleResetSidebar() {
+    setSidebarWidth(500);
+    applySidebarWidth();
+    // --- ALREADY PRESENT: Persist the change ---
+    saveAppState();
+    // --- END ALREADY PRESENT ---
+}
+
+// Maps CSS selectors to their corresponding event handler functions.
+const clickHandlers = {
+    '.star-btn': handleStarClick,
+    '.model-card-toggle-btn': handleToggleModelCollapse,
+    '.select-model-btn': handleUseModel,
+    '.download-btn': handleDownloadModel,
+    '.model-card': handleSelectCard, // General card body click handler
+
+    '#connect-folder-btn': handleConnectFolder,
+    '#run-inference-btn': handleRunInference,
+    '#copy-btn': handleCopyOutput,
+    '#save-btn': handleSaveOutput,
+    '#view-input-btn': handleViewInput,
+    '#view-output-btn': handleViewOutput,
+    '#modal-close-btn': handleCloseModal,
+    '#image-modal': handleCloseModal,
+    '#compare-slide-btn': handleToggleSlideCompare,
+    '#compare-hold-btn': handleToggleHoldCompare,
+    '#theme-toggle-btn': handleToggleTheme,
+    '#reset-sidebar-btn': handleResetSidebar,
+};
 
 export function initWorkbenchEvents() {
+    // --- Main Click Event Dispatcher ---
     document.body.addEventListener('click', async e => {
-        const target = e.target;
-
-        // Sidebar & Model List Actions
-        if (target.closest('#connect-folder-btn')) {
-            connectToDirectory();
-        } else if (target.closest('.model-card-header')) {
-            const header = target.closest('.model-card-header');
-            const moduleId = header.dataset.moduleId;
-            toggleModelCollapsed(moduleId);
-            renderModelsList();
-        } else if (target.closest('.select-model-btn')) {
-            const btn = target.closest('.select-model-btn');
-            const moduleId = btn.dataset.moduleId;
-            setActiveModuleId(moduleId);
-            renderModelsList();
-            await renderWorkbench();
-        } else if (target.closest('.download-btn')) {
-            const btn = target.closest('.download-btn');
-            const moduleId = btn.dataset.moduleId;
-            downloadModel(moduleId);
-
-            // Workbench Actions
-        } else if (target.closest('#run-inference-btn')) {
-            const imageData = dom.getImagePreview()?.src;
-            runInference(imageData);
-        } else if (target.closest('#copy-btn')) {
-            copyOutputToClipboard();
-        } else if (target.closest('#save-btn')) {
-            saveOutputToFile();
-        } else if (target.closest('#view-input-btn')) {
-            openImageModal('input');
-        } else if (target.closest('#view-output-btn')) {
-            openImageModal('output');
-
-            // Modal Closing Actions
-        } else if (
-            target.closest('#modal-close-btn') ||
-            target.id === 'image-modal'
-        ) {
-            closeImageModal();
-
-            // Comparison button clicks
-        } else if (target.closest('#compare-slide-btn')) {
-            const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
-            setComparisonMode(newMode);
-            await renderComparisonView();
-        } else if (target.closest('#compare-hold-btn')) {
-            const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
-            setComparisonMode(newMode);
-            await renderComparisonView();
+        for (const [selector, handler] of Object.entries(clickHandlers)) {
+            const element = e.target.closest(selector);
+            if (
+                element &&
+                (selector !== '#image-modal' || e.target.id === 'image-modal')
+            ) {
+                await handler(e, element);
+                return; // Stop processing further handlers for this click.
+            }
         }
     });
 
+    // --- Other Event Listeners ---
     document.body.addEventListener('change', e => {
         const target = e.target;
         if (target.id === 'image-picker') {
-            const file = e.target.files[0];
-            if (file) {
-                loadImageFile(file);
-            }
+            const file = target.files[0];
+            if (file) loadImageFile(file);
         } else if (target.matches('.variant-selector')) {
             const moduleId = target.dataset.moduleId;
             const variantName = target.value;
             setSelectedVariant(moduleId, variantName);
             renderStatus();
-        }
-        // --- NEW: Handle checkbox changes ---
-        else if (target.matches('.runtime-control input[type="checkbox"]')) {
+        } else if (target.matches('.runtime-control input[type="checkbox"]')) {
             const moduleId = target.dataset.moduleId;
             const paramId = target.dataset.paramId;
-            const value = target.checked; // Get boolean value
+            const value = target.checked;
             setRuntimeConfig(moduleId, paramId, value);
         }
     });
@@ -116,38 +246,22 @@ export function initWorkbenchEvents() {
                 `param-val-${paramId}`
             );
             if (valueDisplay) valueDisplay.textContent = value;
+        } else if (target.id === 'model-search-input') {
+            handleSearch(e.target.value);
         }
     });
 
-    document.body.addEventListener('mousedown', handleCompareMouseDown);
-    document.body.addEventListener('mousemove', handleCompareMouseMove);
-    document.body.addEventListener('mouseup', handleCompareMouseUp);
-    document.body.addEventListener('mouseleave', handleCompareMouseUp);
+    document.body.addEventListener('mousedown', handleMouseDown);
+    document.body.addEventListener('mousemove', handleMouseMove);
+    document.body.addEventListener('mouseup', handleMouseUp);
+    document.body.addEventListener('mouseleave', handleMouseUp);
 
     handleImageDropAreaEvents();
 }
 
 export function initGlobalEvents() {
-    applySavedTheme();
-
-    const themeToggleBtn = dom.themeToggleBtn();
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-}
-
-function toggleTheme() {
-    const isDarkMode = document.documentElement.classList.toggle('dark-mode');
-    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-}
-
-function applySavedTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark-mode');
-    } else {
-        document.documentElement.classList.remove('dark-mode');
-    }
+    applyTheme();
+    applySidebarWidth();
 }
 
 function loadImageFile(file) {
@@ -155,7 +269,6 @@ function loadImageFile(file) {
         console.warn('Selected file is not an image.');
         return;
     }
-
     const reader = new FileReader();
     reader.onload = e => {
         const preview = dom.getImagePreview();
@@ -173,11 +286,9 @@ function loadImageFile(file) {
 function handleImageDropAreaEvents() {
     const dropArea = dom.getImageDropArea();
     if (!dropArea) return;
-
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
     });
-
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(
             eventName,
@@ -185,7 +296,6 @@ function handleImageDropAreaEvents() {
             false
         );
     });
-
     ['dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(
             eventName,
@@ -193,15 +303,12 @@ function handleImageDropAreaEvents() {
             false
         );
     });
-
     dropArea.addEventListener(
         'drop',
         e => {
             const dt = e.dataTransfer;
             const files = dt.files;
-            if (files.length > 0) {
-                loadImageFile(files[0]);
-            }
+            if (files.length > 0) loadImageFile(files[0]);
         },
         false
     );
@@ -212,18 +319,18 @@ function preventDefaults(e) {
     e.stopPropagation();
 }
 
-// --- CLEANED UP: Comparison Event Handlers ---
+// --- Combined Mouse Handlers for Resizing and Comparison Slider ---
 
-function handleCompareMouseDown(e) {
-    const slider = dom.imageCompareSlider();
-    const outputArea = dom.outputArea();
-
-    if (slider && e.target.closest('#image-compare-slider')) {
+function handleMouseDown(e) {
+    if (e.target.matches('.sidebar-resizer')) {
+        isResizingSidebar = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    } else if (e.target.closest('#image-compare-slider')) {
         isDraggingSlider = true;
-        slider.classList.add('dragging');
         e.preventDefault();
     } else if (
-        outputArea &&
         e.target.closest('.output-area') &&
         state.comparisonMode === 'hold'
     ) {
@@ -232,32 +339,36 @@ function handleCompareMouseDown(e) {
     }
 }
 
-function handleCompareMouseMove(e) {
-    if (!isDraggingSlider) return;
-    e.preventDefault();
-
-    const outputArea = dom.outputArea();
-    if (!outputArea) return;
-
-    const imageBounds = getImageBounds();
-    const rect = outputArea.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-
-    const position = Math.max(
-        imageBounds.x,
-        Math.min(imageBounds.x + imageBounds.width, mouseX)
-    );
-
-    const slider = dom.imageCompareSlider();
-    if (slider) slider.style.left = `${position}px`;
-
-    redrawCompareCanvas(position);
+function handleMouseMove(e) {
+    if (isResizingSidebar) {
+        const newWidth = Math.max(300, Math.min(e.clientX, 800));
+        setSidebarWidth(newWidth);
+        applySidebarWidth();
+        // --- NEW: Persist the change ---
+        saveAppState();
+        // --- END NEW ---
+    } else if (isDraggingSlider) {
+        const outputArea = dom.outputArea();
+        if (!outputArea) return;
+        const imageBounds = getImageBounds();
+        const rect = outputArea.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const position = Math.max(
+            imageBounds.x,
+            Math.min(imageBounds.x + imageBounds.width, mouseX)
+        );
+        dom.imageCompareSlider().style.left = `${position}px`;
+        redrawCompareCanvas(position);
+    }
 }
 
-function handleCompareMouseUp() {
+function handleMouseUp() {
+    if (isResizingSidebar) {
+        isResizingSidebar = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
     if (isDraggingSlider) {
-        const slider = dom.imageCompareSlider();
-        if (slider) slider.classList.remove('dragging');
         isDraggingSlider = false;
     } else if (state.comparisonMode === 'hold') {
         renderComparisonView();

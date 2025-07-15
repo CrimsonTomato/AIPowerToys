@@ -14,7 +14,8 @@
             "id": "return_mask",
             "name": "Return Mask",
             "type": "checkbox",
-            "default": false
+            "default": false,
+            "column": 1
         }
     ],
     "default_filename": "background-removed.png"

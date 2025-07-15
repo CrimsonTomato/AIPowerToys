@@ -1,38 +1,43 @@
 <aside class="sidebar-left" id="left-sidebar">
     <div class="sidebar-header">
-        <h1 class="sidebar-full-content">AI PowerToys</h1>
-        <!-- Toggle button (optional for now, can add later) -->
-        <!-- <button id="btn-toggle-left-sidebar" class="sidebar-toggle-btn" title="Toggle Sidebar">
-            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
-        </button> -->
+        <h1>AI PowerToys</h1>
+        <div class="header-actions">
+            <button id="theme-toggle-btn" class="icon-btn" title="Toggle Theme">
+                <span id="theme-icon-sun" class="material-icons">light_mode</span>
+                <span id="theme-icon-moon" class="material-icons hidden">dark_mode</span>
+            </button>
+            <button id="reset-sidebar-btn" class="icon-btn" title="Reset Sidebar Width">
+                <span class="material-icons">restart_alt</span>
+            </button>
+        </div>
     </div>
-    <hr class="sidebar-section-divider"> <!-- ADDED CLASS -->
+    <hr class="sidebar-section-divider">
+
     <div class="sidebar-content-wrapper">
-        <!-- NEW SECTION: Connect to Folder -->
-        <div class="sidebar-section sidebar-full-content">
+        <div class="sidebar-section">
             <h4>Models Folder</h4>
-            <div id="folder-connection-area">
+            <div id="folder-connection-area" class="folder-connection-area">
                 <button id="connect-folder-btn" class="btn btn-secondary">Connect Folder</button>
-                <p id="current-folder-path" class="small-text">Not connected</p> <!-- REMOVED hidden class -->
+                <p id="current-folder-path" class="small-text">Not connected</p>
             </div>
         </div>
-        <hr class="sidebar-section-divider"> <!-- ADDED CLASS -->
-
-        <div class="sidebar-section sidebar-full-content">
-            <h4>Models</h4>
-            <div id="models-list">
-                <!-- Models will be rendered here by ui.js -->
-            </div>
-        </div>
-        <!-- Other sidebar sections (e.g., settings) can go here later -->
-
-        <!-- NEW SECTION: Theme Toggle -->
         <hr class="sidebar-section-divider">
-        <div class="sidebar-section sidebar-full-content">
-            <h4>Theme</h4>
-            <div>
-                <button id="theme-toggle-btn" class="btn btn-secondary">Toggle Dark Mode</button>
+
+        <div class="sidebar-section" id="models-section">
+            <div class="models-section-header">
+                <h4>Models</h4>
+                <input type="search" id="model-search-input" class="form-input" placeholder="Search models...">
+            </div>
+            <div id="models-list">
+                <!-- Models will be rendered here -->
             </div>
         </div>
     </div>
+
+    <div class="sidebar-footer">
+        <p>Funny text insert here</p>
+    </div>
+
+    <!-- The resizer handle is now a direct child of the sidebar -->
+    <div class="sidebar-resizer"></div>
 </aside>

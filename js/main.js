@@ -1,10 +1,7 @@
-import { setModules, setActiveModuleId, state } from './state.js';
-import {
-    renderApp,
-    renderModelsList,
-    renderWorkbench,
-    renderFolderConnectionStatus,
-} from './ui.js';
+import { setModules } from './state.js';
+import { renderApp, renderFolderConnectionStatus } from './ui/main.js';
+import { renderModelsList } from './ui/models.js';
+import { renderWorkbench } from './ui/workbench.js';
 import { initWorker } from './_controllers/modelController.js';
 import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
 import {
@@ -42,19 +39,16 @@ async function main() {
     const allModules = await loadAllModules();
     setModules(allModules);
 
-    await renderApp();
+    await renderApp(); // Renders the main shell and models list
 
-    renderModelsList();
-
-    await loadDirectoryHandle();
+    await loadDirectoryHandle(); // This also loads saved state like theme/sidebar
     renderFolderConnectionStatus();
 
     initWorker();
     initWorkbenchEvents();
     initGlobalEvents();
 
-    // Render workbench (will be hidden initially as no model is active)
-    await renderWorkbench();
+    await renderWorkbench(); // Renders the initial (empty) workbench
 }
 
 main();

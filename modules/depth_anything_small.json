@@ -17,7 +17,18 @@
             "min": 0,
             "max": 1,
             "step": 0.05,
-            "default": 0.5
+            "default": 0.5,
+            "column": 1
+        },
+        {
+            "id": "another_param",
+            "name": "Another Param",
+            "type": "slider",
+            "min": 10,
+            "max": 100,
+            "step": 1,
+            "default": 50,
+            "column": 2
         }
     ],
     "default_filename": "depth-output.png"

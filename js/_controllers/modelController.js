@@ -5,12 +5,13 @@ import {
     updateModelStatus,
     setDownloadProgress,
 } from '../state.js';
-import { renderStatus, renderModelsList } from '../ui.js';
 import { dom } from '../dom.js';
 import {
     checkAllModelsStatus,
     getFileBuffer,
 } from '../_controllers/fileSystemController.js';
+import { renderStatus } from '../ui/main.js';
+import { renderModelsList } from '../ui/models.js';
 
 let inferenceWorker;
 

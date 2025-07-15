@@ -1,13 +1,23 @@
 import { get, set } from 'idb-keyval';
 import {
-    setDirectoryHandle,
-    updateModelStatus,
-    setDownloadProgress,
     state,
-} from '../state.js'; // MODIFIED: Added state import
-import { renderModelsList, renderFolderConnectionStatus } from '../ui.js';
+    setDirectoryHandle,
+    setSidebarWidth,
+    setStarredModels,
+    setModelOrder,
+    setTheme,
+    updateModelStatus,
+    setCollapsedModels
+} from '../state.js';
+import { renderModelsList } from '../ui/models.js';
+import {
+    renderFolderConnectionStatus,
+    applyTheme,
+    applySidebarWidth,
+} from '../ui/main.js';
 
 const DIRECTORY_HANDLE_KEY = 'modelsDirectoryHandle';
+const APP_STATE_KEY = 'aiPowerToysState';
 
 export async function connectToDirectory() {
     try {
@@ -15,25 +25,35 @@ export async function connectToDirectory() {
         await set(DIRECTORY_HANDLE_KEY, handle);
         setDirectoryHandle(handle);
         renderFolderConnectionStatus();
-        checkAllModelsStatus();
+        // Re-check statuses and save state after connecting
+        await checkAllModelsStatus();
+        await saveAppState();
     } catch (error) {
         console.error('Error connecting to directory:', error);
     }
 }
 
 export async function loadDirectoryHandle() {
+    // Load general app state first. This includes theme, sidebarWidth, starredModels, modelOrder, AND collapsedModels.
+    await loadAppState();
     const handle = await get(DIRECTORY_HANDLE_KEY);
     if (handle) {
+        // Check permission for the loaded handle
         if (
             (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
         ) {
             setDirectoryHandle(handle);
             renderFolderConnectionStatus();
-            await checkAllModelsStatus();
+            await checkAllModelsStatus(); // Check statuses based on loaded directory
             return true;
+        } else {
+            // Permission revoked, clear the handle and reset state.
+            console.warn('Permission revoked for directory handle. Resetting.');
+            await set(DIRECTORY_HANDLE_KEY, null); // Clear the stored handle
+            setDirectoryHandle(null); // Clear from state
         }
     }
-    renderFolderConnectionStatus();
+    renderFolderConnectionStatus(); // Update UI even if no handle found
     return false;
 }
 
@@ -223,4 +243,70 @@ function sortVariants(variants) {
         // If neither is in the predefined order, sort alphabetically by name
         return a.name.localeCompare(b.name);
     });
+}
+
+/**
+ * Loads all persistent application state from IndexedDB.
+ * This includes theme, sidebar width, starred models, model order, and collapsed models.
+ */
+async function loadAppState() {
+    const savedState = await get(APP_STATE_KEY);
+    if (savedState) {
+        // Load sidebar width
+        setSidebarWidth(savedState.sidebarWidth || 500);
+        // Load theme
+        setTheme(savedState.theme || 'light');
+        // Load starred models (convert back to Set)
+        setStarredModels(new Set(savedState.starredModels || []));
+        // Load model order
+        setModelOrder(savedState.modelOrder || []);
+
+        // --- NEW: Load collapsed models state ---
+        let collapsedModelsToLoad = new Set();
+        if (
+            savedState.collapsedModels &&
+            Array.isArray(savedState.collapsedModels)
+        ) {
+            // If we have saved collapsed state, use it.
+            collapsedModelsToLoad = new Set(savedState.collapsedModels);
+        } else {
+            // Default behavior: collapse ALL models if no specific state is saved.
+            // This ensures the cards are collapsed by default on first run or if the previous save was incomplete.
+            // We rely on state.modules being populated by main.js before this function is called.
+            if (state.modules && state.modules.length > 0) {
+                const allModuleIds = state.modules.map(m => m.id);
+                collapsedModelsToLoad = new Set(allModuleIds);
+            }
+        }
+        // Update the state with the loaded or default collapsed models.
+        setCollapsedModels(collapsedModelsToLoad);
+        // --- END NEW ---
+    } else {
+        // If no saved state at all (e.g., first run), apply default collapsed state.
+        if (state.modules && state.modules.length > 0) {
+            const allModuleIds = state.modules.map(m => m.id);
+            setCollapsedModels(new Set(allModuleIds)); // Collapse all models by default
+        } else {
+            setCollapsedModels(new Set()); // Ensure it's a Set if modules are empty.
+        }
+    }
+
+    applyTheme(); // Apply theme immediately after loading
+    applySidebarWidth(); // Apply sidebar width immediately after loading
+}
+
+/**
+ * Saves the current application state to IndexedDB.
+ * This includes theme, sidebar width, starred models, model order, and collapsed models.
+ */
+export async function saveAppState() {
+    // Prepare the state to be saved
+    const appState = {
+        sidebarWidth: state.sidebarWidth,
+        theme: state.theme,
+        starredModels: Array.from(state.starredModels), // Convert Set to Array for saving
+        modelOrder: state.modelOrder,
+        collapsedModels: Array.from(state.collapsedModels), // Convert collapsed Set to Array for saving
+    };
+    await set(APP_STATE_KEY, appState); // Save to IndexedDB
 }

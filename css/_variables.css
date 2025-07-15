@@ -13,11 +13,14 @@
     --border-color: #ced0d4;
     --accent-primary: #0866ff;
     --accent-primary-hover: #0058e0;
+    --accent-primary-text: #ffffff;
     --radius: 8px;
 
     /* Status Colors */
     --status-found-color: #28a745; /* Green */
     --status-missing-color: #dc3545; /* Red */
+    --status-success-bg: rgba(40, 167, 69, 0.2);
+    --status-failure-bg: rgba(220, 53, 69, 0.2);
 
     /* Scrollbar Colors */
     --scrollbar-track-color: #f0f2f5;
@@ -33,10 +36,13 @@ html.dark-mode {
     --border-color: #3e4042;
     --accent-primary: #2e89ff;
     --accent-primary-hover: #1b7dff;
+    --accent-primary-text: #ffffff;
 
     /* Status Colors */
     --status-found-color: #34c759;
     --status-missing-color: #ff453a;
+    --status-success-bg: rgba(52, 199, 89, 0.25);
+    --status-failure-bg: rgba(255, 69, 58, 0.25);
 
     /* Scrollbar Colors for Dark Mode */
     --scrollbar-track-color: #242526;
