@@ -6,7 +6,6 @@
         </div>
 
         <div id="workbench-main-area">
-            <!-- Task-specific UI components will be injected here by ui.js -->
             <div id="workbench-input-area" class="workbench-column"></div>
             <div id="workbench-output-area" class="workbench-column"></div>
         </div>
@@ -16,12 +15,13 @@
         </div>
 
         <div class="run-controls">
-            <!-- MODIFIED: Added .btn-primary class for emphasis -->
-            <button id="run-inference-btn" class="btn btn-primary" disabled>Run Inference</button>
+            <button id="run-inference-btn" class="btn btn-primary" disabled>
+                <span class="btn-icon"></span>
+                <span class="btn-text">Run Inference</span>
+            </button>
             <p id="status-text">Status: Select a model and image.</p>
         </div>
 
-        <!-- NEW: Container for output options like filename -->
         <div id="output-options-container" class="hidden">
             <div class="output-option">
                 <label for="output-filename-input">Save Filename:</label>
@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <!-- MODAL STRUCTURE (Updated Icon) -->
+    <!-- MODAL STRUCTURE -->
     <div id="image-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button id="modal-close-btn" class="modal-close-btn icon-btn" title="Close">

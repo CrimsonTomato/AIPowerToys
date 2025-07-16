@@ -19,6 +19,7 @@ export let state = {
 
     // Worker & Processing State
     isProcessing: false,
+    isRenderingWorkbench: false,
     outputData: null,
     inferenceStartTime: null,
     inputDataURLs: [], // For images
@@ -161,4 +162,7 @@ export function clearInputAudioURL() {
 export function setProcessingMode(mode) {
     state.processingMode = mode;
     eventBus.emit('processingModeChanged', mode);
+}
+export function setRenderingWorkbench(isRendering) {
+    state.isRenderingWorkbench = isRendering;
 }

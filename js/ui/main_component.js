@@ -1,24 +1,19 @@
 import { dom } from '../dom.js';
 import { state } from '../state.js';
-import { renderModelsList } from './models.js';
 import { renderInputState } from './components/inputRenderer.js';
 import { renderOutputState } from './components/outputRenderer.js';
 import { eventBus } from '../_events/eventBus.js';
+import { applyTheme } from './sidebar.js';
 
 let timerInterval = null;
-
-// --- NEW: Module-level cache for frequently accessed DOM elements ---
 let uiCache = {};
 
-/**
- * Caches references to frequently accessed DOM elements to improve performance
- * by avoiding repeated document queries.
- * This should be called after major UI components are rendered or re-rendered.
- */
 export function cacheDOMElements() {
     uiCache = {
         statusEl: dom.statusText(),
         runBtn: dom.runInferenceBtn(),
+        runBtnIcon: document.querySelector('#run-inference-btn .btn-icon'),
+        runBtnText: document.querySelector('#run-inference-btn .btn-text'),
         timerEl: dom.inferenceTimer(),
         clearInputBtn: dom.clearInputBtn(),
         copyBtn: dom.copyBtn(),
@@ -47,21 +42,24 @@ export async function renderApp() {
         '/components/views/view_workbench.html'
     );
     dom.centerStage().innerHTML = await workbenchResponse.text();
+
     cacheDOMElements();
 }
 
-/**
- * Renders the global status of the application, including button states and text.
- * Uses cached DOM elements for high performance.
- */
 export function renderStatus() {
+    // --- NEW: Add a guard clause at the top of the function ---
+    // If the workbench is currently re-rendering its DOM, abort this status update.
+    // The update will be called manually by renderWorkbench when it's finished.
+    if (state.isRenderingWorkbench) return;
+
     renderInputState();
     renderOutputState();
 
-    // --- MODIFIED: Use the cached elements instead of querying the DOM ---
     const {
         statusEl,
         runBtn,
+        runBtnIcon,
+        runBtnText,
         timerEl,
         clearInputBtn,
         copyBtn,
@@ -72,7 +70,7 @@ export function renderStatus() {
         compareHoldBtn,
     } = uiCache;
 
-    if (!statusEl || !runBtn || !timerEl) return;
+    if (!statusEl || !runBtn || !timerEl || !runBtnIcon || !runBtnText) return;
 
     const imageReady = state.inputDataURLs.length > 0;
     const audioReady = state.inputAudioURL !== null;
@@ -86,7 +84,9 @@ export function renderStatus() {
     if (state.isProcessing) {
         statusEl.textContent = 'Status: Processing... Please wait.';
         runBtn.disabled = true;
-        runBtn.textContent = 'Processing...';
+        runBtnText.textContent = 'Processing...';
+        runBtnIcon.className = 'btn-icon spinner';
+
         if (clearInputBtn) clearInputBtn.disabled = true;
         if (copyBtn) copyBtn.disabled = true;
         if (saveBtn) saveBtn.disabled = true;
@@ -122,7 +122,9 @@ export function renderStatus() {
         }
         statusEl.textContent = statusMessage;
         runBtn.disabled = !state.activeModuleId || !inputReady;
-        runBtn.textContent = 'Run Inference';
+        runBtnText.textContent = 'Run Inference';
+        runBtnIcon.className = 'btn-icon';
+
         if (state.inferenceDuration !== null) {
             timerEl.classList.remove('hidden');
             const finalTime = state.inferenceDuration / 1000;
@@ -144,33 +146,19 @@ export function renderStatus() {
     }
 }
 
-export function applyTheme() {
-    const isDark = state.theme === 'dark';
-    document.documentElement.classList.toggle('dark-mode', isDark);
-    const sunIcon = dom.themeIconSun();
-    const moonIcon = dom.themeIconMoon();
-    if (sunIcon && moonIcon) {
-        sunIcon.classList.toggle('hidden', isDark);
-        moonIcon.classList.toggle('hidden', !isDark);
-    }
-}
-
-// --- NEW: Subscription setup ---
 export function initMainComponentSubscriptions() {
     eventBus.on('themeChanged', applyTheme);
 
-    // Any state change that could affect the status text or button states
-    // should trigger a renderStatus() call.
     const renderStatusEvents = [
         'inputDataChanged',
         'outputDataChanged',
         'processingStateChanged',
         'inferenceStateChanged',
-        'activeModuleChanged',
+        // --- MODIFIED: Removed this event to prevent the race condition ---
+        // 'activeModuleChanged',
         'selectedVariantChanged',
     ];
     renderStatusEvents.forEach(event => eventBus.on(event, renderStatus));
 
-    // Initial render calls based on initial state
     renderStatus();
 }

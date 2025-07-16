@@ -9,6 +9,11 @@
     border-radius: var(--radius);
     font-size: 0.9rem;
     cursor: pointer;
+    /* NEW: For aligning icon and text */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 .btn:hover:not(:disabled) {
     background-color: var(--bg-secondary);
@@ -35,4 +40,14 @@
 .btn.btn-primary:hover:not(:disabled) {
     background-color: var(--accent-primary-hover);
     border-color: var(--accent-primary-hover);
+}
+
+/* NEW: Styles for the spinner icon inside the button */
+.btn-icon.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }

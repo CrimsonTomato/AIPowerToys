@@ -25,6 +25,13 @@
     }
 }
 
+/* NEW: Spinner animation for the run button */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* --- Form Inputs --- */
 .form-input:focus {
     outline: none;

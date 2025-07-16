@@ -38,6 +38,13 @@
     height: 100%;
     cursor: col-resize;
     z-index: 100;
+    /* NEW: Add transition for a smoother hover effect */
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* NEW: Add a visual indicator on hover for the resizer */
+.sidebar-resizer:hover {
+    background-color: var(--accent-primary-translucent);
 }
 
 .sidebar-header {
@@ -72,23 +79,32 @@
     min-height: 0;
 }
 
+/* MODIFIED: The section is now just for the model list */
 .sidebar-section {
     padding: 0 16px;
 }
 
-#folder-connection-area {
+/* MODIFIED: These are now in the footer, so we adjust their layout */
+#folder-connection-area,
+#gpu-status-area {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
-#folder-connection-area .btn {
+#folder-connection-area .btn,
+#gpu-status-area .btn {
     flex-shrink: 0;
+    padding: 4px 10px; /* Make footer buttons smaller */
+    font-size: 0.8rem;
 }
-#folder-connection-area p {
+#folder-connection-area p,
+#gpu-status-area p {
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 hr.sidebar-section-divider {
@@ -100,13 +116,13 @@ hr.sidebar-section-divider {
     flex-shrink: 0;
     padding: 12px 16px;
     border-top: 1px solid var(--border-color);
-    text-align: center;
+    /* MODIFIED: Removed text-align: center */
 }
-.sidebar-footer p {
-    margin: 0;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+/* NEW: Style for sections within the new footer */
+.sidebar-footer .footer-section:not(:last-child) {
+    margin-bottom: 12px;
 }
+/* REMOVED: No longer need the p tag styling */
 
 /* --- Center Stage --- */
 .center-stage {

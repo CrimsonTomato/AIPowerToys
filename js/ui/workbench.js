@@ -1,11 +1,12 @@
 import { dom } from '../dom.js';
-import { state, setComparisonMode } from '../state.js';
+// --- MODIFIED: Import the new state setter ---
+import { state, setComparisonMode, setRenderingWorkbench } from '../state.js';
 import { getContainSize } from '../utils.js';
 import {
     handleImageDropAreaEvents,
     handleAudioDropAreaEvents,
 } from '../_events/workbenchEvents.js';
-import { cacheDOMElements } from './main_component.js';
+import { cacheDOMElements, renderStatus } from './main_component.js';
 import { eventBus } from '../_events/eventBus.js';
 
 let inputImageForCompare = null;
@@ -22,10 +23,17 @@ const comparisonResizeObserver = new ResizeObserver(() => {
 });
 
 export async function renderWorkbench() {
+    // --- NEW: Set the rendering flag at the very beginning ---
+    setRenderingWorkbench(true);
+
     const workbenchArea = dom.workbenchArea();
     const inputContainer = dom.workbenchInputArea();
     const outputContainer = dom.workbenchOutputArea();
-    if (!workbenchArea || !inputContainer || !outputContainer) return;
+    if (!workbenchArea || !inputContainer || !outputContainer) {
+        // --- NEW: Ensure flag is cleared even on early exit ---
+        setRenderingWorkbench(false);
+        return;
+    }
 
     const oldOutputArea = dom.outputArea();
     if (oldOutputArea) {
@@ -78,7 +86,6 @@ export async function renderWorkbench() {
         outputContainer.innerHTML = '';
     }
 
-    // --- NEW: Re-populate the UI element cache after re-rendering the workbench ---
     cacheDOMElements();
 
     const newOutputArea = dom.outputArea();
@@ -88,6 +95,10 @@ export async function renderWorkbench() {
 
     setComparisonMode('none');
     await renderComparisonView();
+
+    // --- NEW: Clear the flag *before* the final status render ---
+    setRenderingWorkbench(false);
+    renderStatus();
 }
 
 function _renderRuntimeControls(activeModule) {
@@ -327,13 +338,11 @@ export async function redrawCompareCanvas(splitX_visual) {
     );
 }
 
-// --- NEW: Subscription setup ---
 export function initWorkbenchSubscriptions() {
     eventBus.on('activeModuleChanged', renderWorkbench);
-    eventBus.on('processingModeChanged', renderWorkbench); // To re-render runtime controls
+    eventBus.on('processingModeChanged', renderWorkbench);
     eventBus.on('comparisonModeChanged', renderComparisonView);
     eventBus.on('outputDataChanged', renderComparisonView);
 
-    // Initial render
     renderWorkbench();
 }

@@ -97,11 +97,17 @@
     pointer-events: none;
 }
 
-/* Collapsed State */
+/* MODIFIED: Collapsed State */
 .model-card[data-collapsed='true'] {
     gap: 0;
+    /* NEW: Reduce padding when collapsed for a tighter look */
+    padding-top: 8px;
+    padding-bottom: 8px;
 }
 .model-card-content {
+    /* NEW: Add a transition for a smoother collapse/expand animation */
+    transition: max-height 0.2s ease-out, opacity 0.2s ease-out,
+        margin 0.2s ease-out;
     overflow: hidden;
 }
 .model-card[data-collapsed='true'] .model-card-content {

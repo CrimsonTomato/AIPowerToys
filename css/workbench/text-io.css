@@ -13,7 +13,7 @@
     resize: none;
     height: 100%;
     min-height: 200px;
-    padding-top: 30px;
+    /* MODIFIED: Removed padding-top as the label is now hidden */
 }
 #text-output-container .output-controls {
     position: absolute;
@@ -33,4 +33,9 @@
     border-radius: var(--radius);
     z-index: 1;
     margin-bottom: 0;
+}
+
+/* NEW: Hide the output label specifically for the text output area */
+#text-output-container .output-label {
+    display: none;
 }

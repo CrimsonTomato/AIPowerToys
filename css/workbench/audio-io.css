@@ -2,8 +2,16 @@
   Styles for audio-based input areas in the workbench.
 */
 
+/* NEW: Make the container fill the height of its column */
+#audio-input-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
 .audio-drop-area {
-    min-height: 150px;
+    /* MODIFIED: Removed min-height and added flex-grow to fill the container */
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     align-items: center;

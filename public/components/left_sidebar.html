@@ -14,24 +14,7 @@
     <hr class="sidebar-section-divider">
 
     <div class="sidebar-content-wrapper">
-        <div class="sidebar-section">
-            <h4>Models Folder</h4>
-            <div id="folder-connection-area" class="folder-connection-area">
-                <button id="connect-folder-btn" class="btn btn-secondary">Connect Folder</button>
-                <p id="current-folder-path" class="small-text">Not connected</p>
-            </div>
-        </div>
-        <hr class="sidebar-section-divider">
-
-        <div class="sidebar-section">
-            <h4>GPU</h4>
-            <div id="gpu-status-area" class="gpu-status-area">
-                <p id="gpu-status-text" class="small-text">Checking support...</p>
-                <button id="gpu-toggle-btn" class="btn btn-secondary" disabled>Toggle GPU</button>
-            </div>
-        </div>
-        <hr class="sidebar-section-divider">
-
+        <!-- The Models section is now the primary content -->
         <div class="sidebar-section" id="models-section">
             <div class="models-section-header">
                 <h4>Models</h4>
@@ -43,10 +26,22 @@
         </div>
     </div>
 
+    <!-- The footer is now a functional status bar -->
     <div class="sidebar-footer">
-        <p>Funny text insert here</p>
+        <div class="footer-section">
+            <div id="folder-connection-area" class="folder-connection-area">
+                <button id="connect-folder-btn" class="btn btn-secondary">Connect Folder</button>
+                <p id="current-folder-path" class="small-text">Not connected</p>
+            </div>
+        </div>
+        <hr class="sidebar-section-divider">
+        <div class="footer-section">
+            <div id="gpu-status-area" class="gpu-status-area">
+                <p id="gpu-status-text" class="small-text">Checking support...</p>
+                <button id="gpu-toggle-btn" class="btn btn-secondary" disabled>Toggle GPU</button>
+            </div>
+        </div>
     </div>
 
-    <!-- The resizer handle is now a direct child of the sidebar -->
     <div class="sidebar-resizer"></div>
 </aside>
