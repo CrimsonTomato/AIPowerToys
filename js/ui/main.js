@@ -98,19 +98,20 @@ function renderInputState() {
     const audioReady = state.inputAudioURL !== null;
     const audioDropArea = dom.getAudioDropArea();
     if (audioDropArea) {
-        const placeholder = dom.getAudioInputPlaceholder();
-        const filenameDisplay = dom.getAudioFilenameDisplay();
+        const label = document.getElementById('audio-input-label'); // The label now only contains the placeholder
+        const loadedView = dom.getAudioLoadedView();
 
         audioDropArea.dataset.controlsVisible = String(audioReady);
         audioDropArea.dataset.hasContent = String(audioReady);
 
-        placeholder.classList.toggle('hidden', audioReady);
-        filenameDisplay.classList.toggle('hidden', !audioReady);
+        label.classList.toggle('hidden', audioReady);
+        loadedView.classList.toggle('hidden', !audioReady);
 
         if (audioReady) {
+            const player = dom.getAudioPreviewPlayer();
+            const filenameDisplay = dom.getAudioFilenameDisplay();
+            player.src = state.inputAudioURL.url;
             filenameDisplay.textContent = state.inputAudioURL.filename;
-        } else {
-            filenameDisplay.textContent = '';
         }
     }
 }

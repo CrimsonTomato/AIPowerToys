@@ -1,11 +1,22 @@
 <div id="audio-input-container">
     <div class="audio-drop-area" id="audio-drop-area" data-has-content="false">
-        <label for="audio-picker" class="audio-input-label">
-            <span class="material-icons">audiotrack</span>
-            <span id="audio-input-placeholder">Choose or drag an audio file</span>
-            <p id="audio-filename-display" class="hidden"></p>
+        
+        <!-- The label is now just for triggering the file input -->
+        <label for="audio-picker" id="audio-input-label">
+            <span id="audio-input-placeholder">
+                <span class="material-icons">audiotrack</span>
+                <span>Choose or drag an audio file</span>
+            </span>
             <input type="file" id="audio-picker" accept="audio/*" class="hidden" />
         </label>
+        
+        <!-- This view is now a sibling to the label, not inside it -->
+        <div id="audio-loaded-view" class="hidden">
+            <p id="audio-filename-display"></p>
+            <audio id="audio-preview-player" controls></audio>
+        </div>
+        
+        <!-- The clear button is outside the label -->
         <div class="input-controls">
             <button id="clear-input-btn" class="icon-btn" disabled title="Clear Audio Input">
                 <span class="material-icons">delete_sweep</span>

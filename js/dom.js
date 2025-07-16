@@ -39,8 +39,11 @@ export const dom = {
     getAudioDropArea: () => document.getElementById('audio-drop-area'),
     getAudioInputPlaceholder: () =>
         document.getElementById('audio-input-placeholder'),
+    getAudioLoadedView: () => document.getElementById('audio-loaded-view'),
     getAudioFilenameDisplay: () =>
         document.getElementById('audio-filename-display'),
+    getAudioPreviewPlayer: () =>
+        document.getElementById('audio-preview-player'),
     inputControls: () =>
         document.querySelector('#image-drop-area .input-controls'),
     clearInputBtn: () => document.getElementById('clear-input-btn'),

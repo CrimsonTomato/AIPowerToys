@@ -203,9 +203,11 @@
     padding-bottom: 65%; /* Maintain aspect ratio */
     min-height: 200px;
 }
+
 .audio-drop-area {
     min-height: 150px;
     display: flex;
+    flex-direction: column; /* Changed */
     align-items: center;
     justify-content: center;
 }
@@ -231,23 +233,51 @@
     padding: 10px;
     overflow: hidden;
 }
-.image-input-label,
-.audio-input-label {
+
+#audio-input-label {
+    /* The new ID for the label */
     cursor: pointer;
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 1.1rem;
     text-align: center;
+    display: flex;
+    flex-grow: 1; /* Allows it to fill space if no audio is loaded */
     width: 100%;
-    height: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+#audio-input-placeholder {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 8px;
 }
-.audio-input-label .material-icons {
+#audio-input-placeholder .material-icons {
     font-size: 3rem;
+}
+
+#audio-loaded-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 0;
+}
+#audio-filename-display {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all; /* Handle very long filenames */
+    padding: 0 10px;
+}
+#audio-preview-player {
+    width: 100%;
+    max-width: 350px;
 }
 
 #image-preview,
