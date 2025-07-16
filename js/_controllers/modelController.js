@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import {
     state,
     setProcessing,
@@ -16,6 +17,7 @@ import { renderStatus } from '../ui/main.js';
 import { renderModelsList } from '../ui/models.js';
 
 let inferenceWorker;
+let resolveSingleInferencePromise = null;
 
 export function initWorker() {
     inferenceWorker = new Worker(
@@ -26,11 +28,16 @@ export function initWorker() {
     inferenceWorker.onmessage = e => {
         const { type, data } = e.data;
         if (type === 'result') {
-            const duration = Date.now() - state.inferenceStartTime;
-            setInferenceDuration(duration);
-            setOutputData(data);
-            setProcessing(false);
-            renderStatus(); // This is the only call needed to update the UI
+            if (resolveSingleInferencePromise) {
+                resolveSingleInferencePromise(data);
+                resolveSingleInferencePromise = null;
+            } else {
+                const duration = Date.now() - state.inferenceStartTime;
+                setInferenceDuration(duration);
+                setOutputData(data);
+                setProcessing(false);
+                renderStatus();
+            }
         } else if (type === 'status') {
             const statusEl = dom.statusText();
             if (statusEl) statusEl.textContent = `Status: ${data}`;
@@ -70,11 +77,11 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
     return modelFiles;
 }
 
-export async function runInference(imageData) {
+export async function runInference() {
     const activeModule = state.modules.find(m => m.id === state.activeModuleId);
     const modelStatus = state.modelStatuses[state.activeModuleId];
     if (
-        !imageData ||
+        state.inputDataURLs.length === 0 ||
         state.isProcessing ||
         !activeModule ||
         modelStatus.status !== 'found'
@@ -83,9 +90,97 @@ export async function runInference(imageData) {
 
     setProcessing(true);
     setInferenceStartTime(Date.now());
-    setInferenceDuration(null); // Clear previous duration
+    setInferenceDuration(null);
+    setOutputData(null);
     renderStatus();
 
+    try {
+        if (
+            state.processingMode === 'iterative' &&
+            state.inputDataURLs.length > 1
+        ) {
+            await _runIterativeInference(activeModule, modelStatus);
+        } else {
+            await _runBatchInference(activeModule, modelStatus);
+        }
+    } catch (error) {
+        console.error('Error during inference:', error);
+        dom.statusText().textContent = `Error: ${error.message}`;
+        setProcessing(false);
+        setInferenceStartTime(null);
+        renderStatus();
+    }
+}
+
+function _executeSingleInference(url, activeModule, modelStatus) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            resolveSingleInferencePromise = resolve;
+
+            const selectedVariant = modelStatus.discoveredVariants.find(
+                v => v.name === modelStatus.selectedVariant
+            );
+            if (!selectedVariant) {
+                throw new Error(
+                    `Could not find details for selected variant "${modelStatus.selectedVariant}".`
+                );
+            }
+
+            const modelFiles = await _prepareModelFiles(
+                activeModule,
+                selectedVariant
+            );
+            const baseOptions = selectedVariant.pipeline_options;
+            const userConfigs = state.runtimeConfigs[activeModule.id] || {};
+            const device = state.useGpu ? 'webgpu' : 'wasm';
+            const finalPipelineOptions = {
+                ...baseOptions,
+                ...userConfigs,
+                device: device,
+            };
+            const onnxModelPath = selectedVariant.filename;
+
+            inferenceWorker.postMessage({
+                type: 'run',
+                modelFiles: modelFiles,
+                modelId: activeModule.id,
+                onnxModelPath: onnxModelPath,
+                task: activeModule.task,
+                pipelineOptions: finalPipelineOptions,
+                data: url,
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+async function _runIterativeInference(activeModule, modelStatus) {
+    const allResults = [];
+    const total = state.inputDataURLs.length;
+    let i = 1;
+
+    for (const url of state.inputDataURLs) {
+        dom.statusText().textContent = `Status: Processing image ${i} of ${total}...`;
+        const result = await _executeSingleInference(
+            url,
+            activeModule,
+            modelStatus
+        );
+        if (result) {
+            allResults.push(result);
+        }
+        i++;
+    }
+
+    const duration = Date.now() - state.inferenceStartTime;
+    setInferenceDuration(duration);
+    setOutputData(allResults);
+    setProcessing(false);
+    renderStatus();
+}
+
+async function _runBatchInference(activeModule, modelStatus) {
     try {
         const selectedVariant = modelStatus.discoveredVariants.find(
             v => v.name === modelStatus.selectedVariant
@@ -111,27 +206,53 @@ export async function runInference(imageData) {
         };
 
         const onnxModelPath = selectedVariant.filename;
+        const dataToProcess =
+            state.inputDataURLs.length === 1
+                ? state.inputDataURLs[0]
+                : state.inputDataURLs;
 
         inferenceWorker.postMessage({
             type: 'run',
             modelFiles: modelFiles,
             modelId: activeModule.id,
-            onnxModelPath: onnxModelPath, // Pass the specific model path to the worker
+            onnxModelPath: onnxModelPath,
             task: activeModule.task,
             pipelineOptions: finalPipelineOptions,
-            data: imageData,
+            data: dataToProcess,
         });
     } catch (error) {
-        console.error('Error preparing for inference:', error);
-        dom.statusText().textContent = `Error: ${error.message}`;
-        setProcessing(false);
-        setInferenceStartTime(null);
-        renderStatus();
+        throw error;
     }
 }
 
+/**
+ * Helper to convert an ImageData object to a temporary canvas.
+ * @param {ImageData} imageData The ImageData to convert.
+ * @returns {HTMLCanvasElement} A canvas with the image data drawn on it.
+ */
+function _imageDataToCanvas(imageData) {
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+}
+
 export async function copyOutputToClipboard() {
-    const canvas = dom.getOutputCanvas();
+    let canvas = dom.getOutputCanvas();
+    if (Array.isArray(state.outputData)) {
+        if (state.outputData.length > 0 && state.outputData[0]) {
+            canvas = _imageDataToCanvas(state.outputData[0]);
+        } else {
+            canvas = null;
+        }
+    } else if (state.outputData) {
+        canvas = _imageDataToCanvas(state.outputData);
+    } else {
+        canvas = null;
+    }
+
     if (!canvas) return;
 
     const copyBtn = dom.copyBtn();
@@ -171,17 +292,41 @@ export async function copyOutputToClipboard() {
     }
 }
 
-export function saveOutputToFile() {
-    const canvas = dom.getOutputCanvas();
-    if (!canvas) return;
-
+export async function saveOutputToFile() {
     const filenameInput = dom.outputFilenameInput();
-    const filename = filenameInput?.value || 'ai-powertoys-output.png';
+    const baseFilename =
+        filenameInput?.value.replace(/\.png$/i, '') || 'ai-powertoys-output';
 
-    const link = document.createElement('a');
-    link.download = filename;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    if (Array.isArray(state.outputData) && state.outputData.length > 0) {
+        // The check for JSZip is no longer needed as an import will fail loudly if it's not installed.
+        const zip = new JSZip();
+        let i = 0;
+        for (const imageData of state.outputData) {
+            if (!imageData) continue;
+            const canvas = _imageDataToCanvas(imageData);
+            const blob = await new Promise(resolve =>
+                canvas.toBlob(resolve, 'image/png')
+            );
+            const filename = `${baseFilename}-${i + 1}.png`;
+            zip.file(filename, blob);
+            i++;
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.download = `${baseFilename}.zip`;
+        link.href = URL.createObjectURL(zipBlob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+    } else if (state.outputData) {
+        const canvas = _imageDataToCanvas(state.outputData);
+        if (!canvas) return;
+
+        const link = document.createElement('a');
+        link.download = `${baseFilename}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
 }
 
 /**
@@ -216,13 +361,10 @@ export async function downloadModel(moduleId) {
             );
         const modelInfo = await response.json();
 
-        // --- MODIFICATION START ---
-        // Filter the file list to only include .onnx and .json files
         const filesToDownload = modelInfo.siblings.filter(fileInfo => {
             const filename = fileInfo.rfilename.toLowerCase();
             return filename.endsWith('.onnx') || filename.endsWith('.json');
         });
-        // --- MODIFICATION END ---
 
         if (filesToDownload.length === 0) {
             throw new Error(

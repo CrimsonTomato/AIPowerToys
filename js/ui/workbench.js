@@ -1,5 +1,5 @@
 import { dom } from '../dom.js';
-import { state, setComparisonMode } from '../state.js';
+import { state, setComparisonMode, setOutputData } from '../state.js';
 import { getContainSize } from '../utils.js';
 
 let inputImageForCompare = null;
@@ -81,9 +81,20 @@ function _renderRuntimeControls(activeModule) {
     const container = dom.runtimeControlsContainer();
     if (!container) return;
 
+    const isIterative = state.processingMode === 'iterative';
+    const globalControlsHtml = `
+        <div class="runtime-control checkbox-control">
+            <label for="param-processing-mode">Iterative Processing (One-by-one)</label>
+            <input type="checkbox" id="param-processing-mode" data-param-id="processing-mode" ${
+                isIterative ? 'checked' : ''
+            }>
+        </div>
+        <hr class="sidebar-section-divider">
+    `;
+
     const params = activeModule.configurable_params;
     if (!params || !params.length) {
-        container.innerHTML = '';
+        container.innerHTML = `<h4>Runtime Options</h4>${globalControlsHtml}`;
         container.classList.remove('has-two-columns');
         return;
     }
@@ -114,7 +125,7 @@ function _renderRuntimeControls(activeModule) {
         return '';
     };
 
-    let html = `<h4>Runtime Options</h4>`;
+    let html = `<h4>Runtime Options</h4>${globalControlsHtml}`;
     if (hasTwoColumns) {
         html += `<div class="runtime-column">${columns[1]
             .map(renderParam)
@@ -123,14 +134,53 @@ function _renderRuntimeControls(activeModule) {
             .map(renderParam)
             .join('')}</div>`;
     } else {
-        // If not explicitly two columns, render all in a single block
         html += params.map(renderParam).join('');
     }
     container.innerHTML = html;
 }
 
+/**
+ * Renders the output grid for batch processing results.
+ * @param {ImageData[]} results - An array of ImageData objects to render.
+ */
+export function renderOutputGrid(results) {
+    const grid = dom.outputImageGrid();
+    if (!grid) return;
+
+    grid.innerHTML = ''; // Clear previous results
+
+    if (!results || results.length === 0) {
+        return;
+    }
+
+    results.forEach(imageData => {
+        if (!imageData) return;
+
+        const item = document.createElement('div');
+        item.className = 'grid-image-item';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = imageData.width;
+        canvas.height = imageData.height;
+        canvas.getContext('2d').putImageData(imageData, 0, 0);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'grid-item-overlay';
+        overlay.innerHTML = `<span class="material-icons">zoom_in</span>`;
+
+        item.appendChild(canvas);
+        item.appendChild(overlay);
+        grid.appendChild(item);
+    });
+}
+
+export function clearOutputGrid() {
+    const grid = dom.outputImageGrid();
+    if (grid) grid.innerHTML = '';
+}
+
 function _drawPlainOutputToCanvas() {
-    if (!state.outputData) return;
+    if (!state.outputData || Array.isArray(state.outputData)) return;
     const canvas = dom.getOutputCanvas();
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -140,15 +190,14 @@ function _drawPlainOutputToCanvas() {
 }
 
 async function _getLoadedInputImage() {
-    const inputPreview = dom.getImagePreview();
-    if (!inputPreview || inputPreview.classList.contains('hidden')) return null;
+    const inputDataURLs = state.inputDataURLs;
+    if (inputDataURLs.length === 0) return null;
 
-    if (
-        !inputImageForCompare ||
-        inputImageForCompare.src !== inputPreview.src
-    ) {
+    const previewSrc = inputDataURLs[0];
+
+    if (!inputImageForCompare || inputImageForCompare.src !== previewSrc) {
         inputImageForCompare = new Image();
-        inputImageForCompare.src = inputPreview.src;
+        inputImageForCompare.src = previewSrc;
         await new Promise((resolve, reject) => {
             inputImageForCompare.onload = resolve;
             inputImageForCompare.onerror = reject;
@@ -165,13 +214,23 @@ export async function renderComparisonView() {
     if (!outputArea || !slider || !slideBtn || !holdBtn) return;
 
     outputArea.dataset.compareMode = state.comparisonMode;
+
+    const isBatchMode = Array.isArray(state.outputData);
+    if (isBatchMode) {
+        setComparisonMode('none');
+    }
+
     slideBtn.classList.toggle('active', state.comparisonMode === 'slide');
     holdBtn.classList.toggle('active', state.comparisonMode === 'hold');
 
     const canvas = dom.getOutputCanvas();
     const inputImage = await _getLoadedInputImage();
     const canCompare =
-        canvas && canvas.width > 0 && inputImage && state.outputData;
+        !isBatchMode &&
+        canvas &&
+        canvas.width > 0 &&
+        inputImage &&
+        state.outputData;
 
     if (state.comparisonMode === 'slide' && canCompare) {
         const canvasRect = canvas.getBoundingClientRect();

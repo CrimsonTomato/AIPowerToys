@@ -120,6 +120,10 @@ html.dark-mode .output-view-controls .icon-btn.active {
     background-color: var(--accent-primary);
     color: var(--bg-primary);
 }
+.input-controls .icon-btn:hover:not(:disabled) {
+    background-color: var(--status-failure-bg);
+    color: var(--text-primary);
+}
 
 /* --- Form Inputs --- */
 .form-input:focus {

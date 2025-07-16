@@ -36,6 +36,9 @@ import {
     setSidebarWidth,
     setTheme,
     setUseGpu,
+    setInputDataURLs,
+    clearInputDataURLs,
+    setProcessingMode,
 } from '../state.js';
 let isDraggingSlider = false;
 let isResizingSidebar = false;
@@ -45,6 +48,8 @@ async function activateModule(moduleId) {
     if (!moduleId || state.activeModuleId === moduleId) {
         return; // Do nothing if no ID or already active
     }
+    // When switching modules, clear the workbench inputs and outputs
+    clearInputs();
     setActiveModuleId(moduleId);
     renderModelsList();
     await renderWorkbench();
@@ -76,7 +81,6 @@ async function handleStarClick(e, element) {
     saveAppState();
 }
 
-// --- REFACTOR: Use the shared activateModule function ---
 async function handleUseModel(e, element) {
     e.stopPropagation();
     const moduleId = element.dataset.moduleId;
@@ -102,37 +106,22 @@ async function handleSelectCard(e, element) {
     ) {
         return; // Let specific handlers take over
     }
-
-    // A click on the card body now always activates the module.
     await activateModule(moduleId);
 }
 
-// --- PERFORMANCE: Pass raw ImageData to runInference ---
 async function handleRunInference() {
-    const preview = dom.getImagePreview();
-    if (!preview || !preview.src || preview.naturalWidth === 0) {
-        // No image loaded or image not yet rendered
-        dom.statusText().textContent = 'Status: Please load an image first.';
-        return;
+    runInference();
+}
+
+function handleClearInput() {
+    clearInputs();
+}
+
+async function handleViewInput() {
+    if (state.inputDataURLs.length > 0) {
+        // This will open the first (and only, in single-image mode) image in the modal.
+        openImageModal('data-url', state.inputDataURLs[0]);
     }
-
-    // Get the raw pixel data from the preview image to avoid re-decoding in the worker.
-    // This is especially useful for image-segmentation's post-processing.
-    const canvas = new OffscreenCanvas(
-        preview.naturalWidth,
-        preview.naturalHeight
-    );
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(preview, 0, 0);
-    const originalImageData = ctx.getImageData(
-        0,
-        0,
-        preview.naturalWidth,
-        preview.naturalHeight
-    );
-
-    // Pass both the data URL (for the pipeline) and the raw ImageData (for post-processing).
-    runInference(preview.src, originalImageData);
 }
 
 async function handleCopyOutput() {
@@ -143,12 +132,14 @@ async function handleSaveOutput() {
     saveOutputToFile();
 }
 
-async function handleViewInput() {
-    openImageModal('input');
-}
-
 async function handleViewOutput() {
-    openImageModal('output');
+    if (!state.outputData) return;
+    const imageData = Array.isArray(state.outputData)
+        ? state.outputData[0]
+        : state.outputData;
+    if (imageData) {
+        openImageModal('image-data', imageData);
+    }
 }
 
 async function handleCloseModal(e) {
@@ -158,12 +149,14 @@ async function handleCloseModal(e) {
 async function handleToggleSlideCompare() {
     const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
     setComparisonMode(newMode);
+    // FIX: Only call renderComparisonView when user interacts with it
     await renderComparisonView();
 }
 
 async function handleToggleHoldCompare() {
     const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
     setComparisonMode(newMode);
+    // FIX: Only call renderComparisonView when user interacts with it
     await renderComparisonView();
 }
 
@@ -187,22 +180,20 @@ async function handleResetSidebar() {
     saveAppState();
 }
 
-// Maps CSS selectors to their corresponding event handler functions.
 const clickHandlers = {
     '.star-btn': handleStarClick,
     '.model-card-toggle-btn': handleToggleModelCollapse,
     '.select-model-btn': handleUseModel,
     '.download-btn': handleDownloadModel,
     '.model-card': handleSelectCard,
-
     '#connect-folder-btn': handleConnectFolder,
     '#run-inference-btn': handleRunInference,
     '#copy-btn': handleCopyOutput,
-    '#save-btn': handleSaveOutput,
     '#view-input-btn': handleViewInput,
+    '#clear-input-btn': handleClearInput,
+    '#save-btn': handleSaveOutput,
     '#view-output-btn': handleViewOutput,
     '#modal-close-btn': handleCloseModal,
-    '#image-modal': handleCloseModal,
     '#compare-slide-btn': handleToggleSlideCompare,
     '#compare-hold-btn': handleToggleHoldCompare,
     '#theme-toggle-btn': handleToggleTheme,
@@ -211,26 +202,41 @@ const clickHandlers = {
 };
 
 export function initWorkbenchEvents() {
-    // --- Main Click Event Dispatcher ---
     document.body.addEventListener('click', async e => {
+        const modal = e.target.closest('#image-modal');
+        if (modal && e.target === modal) {
+            handleCloseModal();
+            return;
+        }
+
+        const gridItem = e.target.closest('.grid-image-item');
+        if (gridItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (gridItem.closest('#image-input-grid')) {
+                const url = gridItem.dataset.imageDataUrl;
+                if (url) openImageModal('data-url', url);
+            } else if (gridItem.closest('#output-image-grid')) {
+                const canvas = gridItem.querySelector('canvas');
+                if (canvas) openImageModal('canvas', canvas);
+            }
+            return;
+        }
+
         for (const [selector, handler] of Object.entries(clickHandlers)) {
             const element = e.target.closest(selector);
-            if (
-                element &&
-                (selector !== '#image-modal' || e.target.id === 'image-modal')
-            ) {
+            if (element) {
                 await handler(e, element);
                 return;
             }
         }
     });
 
-    // --- Other Event Listeners ---
     document.body.addEventListener('change', e => {
         const target = e.target;
         if (target.id === 'image-picker') {
-            const file = target.files[0];
-            if (file) loadImageFile(file);
+            const files = target.files;
+            if (files.length > 0) loadImageFiles(files);
         } else if (target.matches('.variant-selector')) {
             const moduleId = target.dataset.moduleId;
             const variantName = target.value;
@@ -238,6 +244,13 @@ export function initWorkbenchEvents() {
             renderStatus();
             saveAppState();
         } else if (target.matches('.runtime-control input[type="checkbox"]')) {
+            if (target.dataset.paramId === 'processing-mode') {
+                const mode = target.checked ? 'iterative' : 'batch';
+                setProcessingMode(mode);
+                saveAppState();
+                return;
+            }
+
             const moduleId = target.dataset.moduleId;
             const paramId = target.dataset.paramId;
             const value = target.checked;
@@ -282,23 +295,40 @@ export function initGlobalEvents() {
     applySidebarWidth();
 }
 
-function loadImageFile(file) {
-    if (!file || !file.type.startsWith('image/')) {
-        console.warn('Selected file is not an image.');
-        return;
+function clearInputs() {
+    clearInputDataURLs();
+    const grid = dom.imageInputGrid();
+    const singlePreview = dom.getImagePreview();
+    const dropArea = dom.getImageDropArea();
+    const placeholder = dom.getImageInputPlaceholder();
+    if (grid) {
+        grid.innerHTML = '';
+        grid.classList.add('hidden');
     }
-    const reader = new FileReader();
-    reader.onload = e => {
-        const preview = dom.getImagePreview();
-        const placeholder = dom.getImageInputPlaceholder();
-        if (preview) {
-            preview.src = e.target.result;
-            preview.classList.remove('hidden');
-            if (placeholder) placeholder.classList.add('hidden');
-            renderStatus();
-        }
-    };
-    reader.readAsDataURL(file);
+    if (singlePreview) {
+        singlePreview.src = '';
+        singlePreview.classList.add('hidden');
+    }
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (dropArea) dropArea.removeAttribute('data-has-content');
+    renderStatus();
+}
+
+async function loadImageFiles(files) {
+    if (!files || files.length === 0) return;
+    clearInputs();
+    let urls = [];
+    const readPromises = Array.from(files).map(file => {
+        if (!file.type.startsWith('image/')) return Promise.resolve(null);
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    });
+    urls = (await Promise.all(readPromises)).filter(Boolean);
+    setInputDataURLs(urls);
+    renderStatus();
 }
 
 function handleImageDropAreaEvents() {
@@ -309,7 +339,7 @@ function handleImageDropAreaEvents() {
     });
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(
-            eventName,
+            'dragover',
             () => dropArea.classList.add('drag-over'),
             false
         );
@@ -325,8 +355,7 @@ function handleImageDropAreaEvents() {
         'drop',
         e => {
             const dt = e.dataTransfer;
-            const files = dt.files;
-            if (files.length > 0) loadImageFile(files[0]);
+            if (dt.files.length > 0) loadImageFiles(dt.files);
         },
         false
     );
@@ -360,7 +389,6 @@ function handleMouseMove(e) {
         const newWidth = Math.max(300, Math.min(e.clientX, 800));
         setSidebarWidth(newWidth);
         applySidebarWidth();
-        // Do not save on every mouse move event for performance.
     } else if (isDraggingSlider) {
         const outputArea = dom.outputArea();
         if (!outputArea) return;

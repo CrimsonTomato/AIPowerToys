@@ -3,7 +3,14 @@
         <!-- WRAPPER FOR MAIN CONTENT -->
         <div class="aspect-ratio-content-wrapper">
             <p class="output-label">Output:</p>
-            <canvas id="output-canvas"></canvas>
+            <!-- Placeholder text, visible when there is no output -->
+            <span id="output-placeholder">Output will appear here</span>
+            <!-- Single image output, hidden by default -->
+            <canvas id="output-canvas" class="hidden"></canvas>
+            <!-- Batch image output, hidden by default -->
+            <div id="output-image-grid" class="image-grid hidden">
+                <!-- Placeholder moved out -->
+            </div>
         </div>
 
         <!-- NEW: Comparison Tools (Bottom Left) -->

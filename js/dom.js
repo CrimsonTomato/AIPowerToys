@@ -34,8 +34,10 @@ export const dom = {
     getImageDropArea: () => document.getElementById('image-drop-area'),
     getImageInputPlaceholder: () =>
         document.getElementById('image-input-placeholder'),
+    imageInputGrid: () => document.getElementById('image-input-grid'),
     inputControls: () =>
         document.querySelector('#image-drop-area .input-controls'),
+    clearInputBtn: () => document.getElementById('clear-input-btn'),
     viewInputBtn: () => document.getElementById('view-input-btn'),
 
     // --- Output Area ---
@@ -48,6 +50,7 @@ export const dom = {
     viewOutputBtn: () => document.getElementById('view-output-btn'),
     compareSlideBtn: () => document.getElementById('compare-slide-btn'),
     compareHoldBtn: () => document.getElementById('compare-hold-btn'),
+    outputImageGrid: () => document.getElementById('output-image-grid'),
     imageCompareSlider: () => document.getElementById('image-compare-slider'),
 
     // --- Modal ---

@@ -9,6 +9,7 @@ import {
     updateModelStatus,
     setCollapsedModels,
     setUseGpu,
+    setProcessingMode,
 } from '../state.js';
 import { renderModelsList } from '../ui/models.js';
 import {
@@ -263,6 +264,8 @@ async function loadAppState() {
         if (state.gpuSupported && typeof savedState.useGpu !== 'undefined') {
             setUseGpu(savedState.useGpu);
         }
+        // Load processing mode
+        setProcessingMode(savedState.processingMode || 'batch');
         // Load starred models (convert back to Set)
         setStarredModels(new Set(savedState.starredModels || []));
         // Load model order
@@ -312,6 +315,7 @@ export async function saveAppState() {
         sidebarWidth: state.sidebarWidth,
         theme: state.theme,
         useGpu: state.useGpu,
+        processingMode: state.processingMode,
         starredModels: Array.from(state.starredModels), // Convert Set to Array for saving
         modelOrder: state.modelOrder,
         collapsedModels: Array.from(state.collapsedModels), // Convert collapsed Set to Array for saving

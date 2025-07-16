@@ -92,7 +92,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-right: 10px
+    margin-right: 10px;
 }
 .gpu-status-area .btn {
     flex-shrink: 0;

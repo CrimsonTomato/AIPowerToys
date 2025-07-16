@@ -15,6 +15,7 @@
   "dependencies": {
     "@huggingface/transformers": "^3.6.3",
     "idb-keyval": "^6.2.2",
+    "jszip": "^3.10.1",
     "sortablejs": "^1.15.6"
   }
 }

@@ -1,17 +1,26 @@
 <div id="input-container">
-    <div class="image-preview-container" id="image-drop-area">
+    <div class="image-preview-container" id="image-drop-area" data-controls-visible="false">
         <!-- WRAPPER FOR MAIN CONTENT -->
         <div class="aspect-ratio-content-wrapper">
             <label for="image-picker" class="image-input-label">
-                <span id="image-input-placeholder">Choose or drag an image here</span>
+                <span id="image-input-placeholder">Choose or drag images here</span>
+                <!-- Single image preview -->
                 <img id="image-preview" src="" alt="Image preview" class="hidden" />
-                <input type="file" id="image-picker" accept="image/*" class="hidden" />
+                <!-- The grid for multiple images -->
+                <div id="image-input-grid" class="image-grid hidden"></div>
+                <input type="file" id="image-picker" accept="image/*" class="hidden" multiple />
             </label>
         </div>
-        <!-- View Input button INSIDE input container, bottom right -->
-        <div class="input-controls">
+        <!-- Controls for viewing input area (bottom-left) -->
+        <div class="input-view-controls">
             <button id="view-input-btn" class="icon-btn" disabled title="View Input Fullscreen">
                 <span class="material-icons">fullscreen</span>
+            </button>
+        </div>
+        <!-- Controls for actions on input area (bottom-right) -->
+        <div class="input-controls">
+            <button id="clear-input-btn" class="icon-btn" disabled title="Clear Input Images">
+                <span class="material-icons">delete_sweep</span>
             </button>
         </div>
     </div>

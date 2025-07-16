@@ -13,11 +13,13 @@ export let state = {
     comparisonMode: 'none',
     starredModels: new Set(),
     modelOrder: [],
+    processingMode: 'batch', // 'batch' or 'iterative'
 
     // Worker & Processing State
     isProcessing: false,
     outputData: null,
     inferenceStartTime: null,
+    inputDataURLs: [],
     inferenceDuration: null,
     downloadProgress: {
         status: 'idle',
@@ -68,7 +70,12 @@ export function setProcessing(isProcessing) {
     state.isProcessing = isProcessing;
 }
 export function setOutputData(data) {
-    state.outputData = data;
+    // If data is an array but empty, treat it as null for consistency
+    if (Array.isArray(data) && data.length === 0) {
+        state.outputData = null;
+    } else {
+        state.outputData = data;
+    }
 }
 export function setInferenceStartTime(time) {
     state.inferenceStartTime = time;
@@ -111,4 +118,13 @@ export function setStarredModels(models) {
 // Add a setter for collapsedModels for loading state
 export function setCollapsedModels(modelsSet) {
     state.collapsedModels = modelsSet;
+}
+export function setInputDataURLs(urls) {
+    state.inputDataURLs = urls;
+}
+export function clearInputDataURLs() {
+    state.inputDataURLs = [];
+}
+export function setProcessingMode(mode) {
+    state.processingMode = mode;
 }

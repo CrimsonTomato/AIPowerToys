@@ -11,6 +11,7 @@ const fileCache = new Map();
 
 let currentPipeline = null;
 let currentModelId = null;
+let currentPipelineOptions = null;
 
 // The custom cache uses the in-memory fileCache.
 env.useCustomCache = true;
@@ -34,7 +35,15 @@ env.customCache = {
 
 self.onmessage = async e => {
     // We receive modelFiles, not a handle.
-    const { type, modelFiles, onnxModelPath, modelId, task, pipelineOptions, data } = e.data;
+    const {
+        type,
+        modelFiles,
+        onnxModelPath,
+        modelId,
+        task,
+        pipelineOptions,
+        data,
+    } = e.data;
 
     if (type === 'run') {
         try {
@@ -55,10 +64,6 @@ self.onmessage = async e => {
                 }
             }
 
-            // --- FINAL, ROBUST FIX FOR WEBGPU ---
-            // The WebGPU backend can be particular about filenames. It might look for 'model.onnx',
-            // 'encoder_model.onnx', etc. The key insight is that it looks for these files
-            // in the SAME DIRECTORY as the main model file.
             if (pipelineOptions?.device === 'webgpu' && onnxFileBuffer) {
                 const commonModelNames = [
                     'model.onnx',
@@ -66,49 +71,66 @@ self.onmessage = async e => {
                     'decoder_model.onnx',
                     'decoder_with_past_model.onnx',
                 ];
-
-                // Extract the directory path from the full path of the selected model variant.
-                // e.g., for `/models/id/onnx/model_fp16.onnx`, this gets `/models/id/onnx/`
-                const directoryPath = onnxFileFullPath.substring(0, onnxFileFullPath.lastIndexOf('/') + 1);
-
+                const directoryPath = onnxFileFullPath.substring(
+                    0,
+                    onnxFileFullPath.lastIndexOf('/') + 1
+                );
                 const modelBlob = new Blob([onnxFileBuffer]);
-
                 for (const name of commonModelNames) {
-                    // Create the full alias path within the correct directory.
                     const aliasPath = `${directoryPath}${name}`;
-
-                    // Do not overwrite if a file with this name already exists.
-                    // This is important for models with separate encoder/decoder files.
                     if (!fileCache.has(aliasPath)) {
                         fileCache.set(aliasPath, modelBlob);
-                        console.log(`AI PowerToys (WebGPU Fix): Aliased ${onnxFileFullPath} to ${aliasPath}`);
                     }
                 }
             }
-            // --- END FIX ---
 
+            // --- PIPELINE CREATION/RE-USE LOGIC ---
+            const isGpu = pipelineOptions?.device === 'webgpu';
+            const needsNewPipeline =
+                !currentPipeline ||
+                currentModelId !== modelId ||
+                JSON.stringify(currentPipelineOptions) !==
+                    JSON.stringify(pipelineOptions) ||
+                isGpu;
 
-            self.postMessage({
-                type: 'status',
-                data: `Creating pipeline (Device: ${
-                    pipelineOptions?.device || 'wasm'
-                })...`,
-            });
+            if (needsNewPipeline) {
+                self.postMessage({
+                    type: 'status',
+                    data: `Creating pipeline (Device: ${
+                        pipelineOptions?.device || 'wasm'
+                    })...`,
+                });
+                if (currentPipeline) {
+                    await currentPipeline.dispose();
+                }
+                currentPipeline = await pipeline(
+                    task,
+                    modelId,
+                    pipelineOptions
+                );
+                currentModelId = modelId;
+                currentPipelineOptions = pipelineOptions;
 
-            // The pipeline call now works because the cache is ready.
-            currentPipeline = await pipeline(task, modelId, pipelineOptions);
-            currentModelId = modelId;
-            self.postMessage({
-                type: 'status',
-                data: 'Model loaded. Ready for inference.',
-            });
+                self.postMessage({
+                    type: 'status',
+                    data: 'Model loaded. Ready for inference.',
+                });
+            }
 
-            self.postMessage({ type: 'status', data: 'Running inference...' });
+            // --- TRUE BATCHING ---
+            // `data` is now an array of data URLs (or a single one in an array)
+            // The pipeline function handles both single and array inputs.
+            const statusMessage =
+                Array.isArray(data) && data.length > 1
+                    ? `Running inference on ${data.length} images...`
+                    : 'Running inference...';
+            self.postMessage({ type: 'status', data: statusMessage });
+
             const output = await currentPipeline(data, pipelineOptions);
 
             self.postMessage({
                 type: 'status',
-                data: 'Post-processing result...',
+                data: 'Post-processing results...',
             });
             const postProcess = taskHandlers[task];
             if (!postProcess) {
@@ -117,16 +139,35 @@ self.onmessage = async e => {
                 );
             }
 
-            // Pass the original data (inputUrl) and options to the handler
-            const renderable = await postProcess(output, data, pipelineOptions);
+            // The pipeline returns an array of results for a batch, or a single result for a single input.
+            // We ensure it's always an array for consistent processing.
+            const outputArray = Array.isArray(output) ? output : [output];
+            const inputArray = Array.isArray(data) ? data : [data];
 
-            self.postMessage({ type: 'result', data: renderable });
+            const processingPromises = outputArray.map(
+                (singleOutput, index) => {
+                    const inputUrl = inputArray[index];
+                    return postProcess(singleOutput, inputUrl, pipelineOptions);
+                }
+            );
+
+            const renderables = await Promise.all(processingPromises);
+
+            // If the original input was not an array, return a single item instead of an array of one.
+            const finalData = Array.isArray(data)
+                ? renderables
+                : renderables[0];
+
+            self.postMessage({ type: 'result', data: finalData });
         } catch (error) {
             console.error(error);
             self.postMessage({
-                type: 'status',
+                type: 'error',
                 data: `Error: ${error.message}`,
             });
+            // Reset pipeline on error
+            currentPipeline = null;
+            currentModelId = null;
         }
     }
 };
