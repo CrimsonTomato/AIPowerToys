@@ -1,0 +1,66 @@
+/*
+  Styles for audio-based input areas in the workbench.
+*/
+
+.audio-drop-area {
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+    position: relative;
+    width: 100%;
+    transition: background-color 0.1s ease-out, border-color 0.1s ease-out;
+}
+.audio-drop-area:hover:not(.drag-over) {
+    background-color: var(--bg-secondary);
+    border-color: var(--text-secondary);
+}
+
+#audio-input-label {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 1.1rem;
+    text-align: center;
+    display: flex;
+    flex-grow: 1;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+#audio-input-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+#audio-input-placeholder .material-icons {
+    font-size: 3rem;
+}
+
+#audio-loaded-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 0;
+}
+#audio-filename-display {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+    padding: 0 10px;
+}
+#audio-preview-player {
+    width: 100%;
+    max-width: 350px;
+}

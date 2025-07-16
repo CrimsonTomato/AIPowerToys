@@ -1,0 +1,109 @@
+/*
+  Styles for the runtime options and run controls at the
+  bottom of the workbench.
+*/
+
+#runtime-controls-container,
+#output-options-container {
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 16px;
+}
+.runtime-control,
+.output-option {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.runtime-control:last-child,
+.output-option:last-child {
+    margin-bottom: 0;
+}
+.runtime-control label,
+.output-option label {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+.runtime-control label span {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Checkbox specific adjustments */
+.runtime-control.checkbox-control {
+    grid-template-columns: 1fr auto;
+}
+
+/* --- Two-column layout for runtime controls --- */
+#runtime-controls-container.has-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    align-items: start;
+}
+#runtime-controls-container.has-two-columns > h4 {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+}
+.runtime-column {
+    display: grid;
+    grid-auto-rows: min-content;
+    gap: 16px;
+}
+
+/* --- Run Controls --- */
+.run-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.run-controls #status-text {
+    flex-grow: 1;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* --- Generic I/O Controls --- */
+.input-controls,
+.output-controls,
+.output-view-controls,
+.input-view-controls {
+    position: absolute;
+    bottom: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.input-controls {
+    right: 16px;
+}
+.output-controls {
+    right: 16px;
+}
+.output-view-controls {
+    left: 16px;
+}
+.input-view-controls {
+    left: 16px;
+}
+#image-drop-area[data-controls-visible='true'] .input-controls,
+#image-drop-area[data-controls-visible='true'] .input-view-controls,
+#audio-drop-area[data-controls-visible='true'] .input-controls,
+.output-area[data-controls-visible='true'] .output-controls,
+.output-area[data-controls-visible='true'] .output-view-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+.output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary-translucent);
+    color: var(--accent-primary);
+}
+html.dark-mode .output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary);
+    color: var(--bg-primary);
+}

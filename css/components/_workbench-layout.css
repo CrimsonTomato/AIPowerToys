@@ -1,0 +1,35 @@
+/*
+  Styles for the main workbench container and columns.
+*/
+
+#workbench-area {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.workbench-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: -15px; /* Pull the main area up */
+}
+#inference-timer {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+#workbench-main-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: -15px;
+}
+.workbench-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}

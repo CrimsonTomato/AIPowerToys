@@ -1,0 +1,152 @@
+/*
+  Styles for the model cards in the sidebar.
+*/
+
+#models-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+.model-card {
+    background-color: var(--bg-tertiary);
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.model-card p {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+.status-found {
+    color: var(--status-found-color);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+.status-missing {
+    color: var(--status-missing-color);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* --- Model Card States --- */
+.model-card[data-active='true'] {
+    background-color: var(--bg-primary);
+    border: 2px solid var(--accent-primary);
+    padding: 11px;
+}
+.model-card[data-active='true'] .model-card-header {
+    cursor: default;
+}
+.model-card[data-collapsed='true'][data-status='missing'] {
+    background-color: var(--status-missing-bg-faded);
+    border-color: var(--status-missing-color);
+}
+.model-card[data-collapsed='true'][data-status='found'] {
+    background-color: var(--status-found-bg-faded);
+    border-color: var(--status-found-color);
+}
+
+/* SortableJS Classes */
+.model-card.sortable-ghost {
+    opacity: 0.4;
+    background-color: var(--accent-primary-translucent);
+}
+.model-card.sortable-chosen {
+    cursor: grabbing;
+}
+
+/* --- Model Card Header & Toggle --- */
+.model-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.model-card-header h3 {
+    margin: 0;
+    flex-grow: 1;
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+.model-card .star-btn {
+    margin-left: -4px;
+    margin-right: 4px;
+}
+.model-card-toggle-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.model-card-toggle-btn:hover {
+    color: var(--text-primary);
+}
+.model-card-toggle-btn .material-icons {
+    width: 24px;
+    height: 24px;
+    pointer-events: none;
+}
+
+/* Collapsed State */
+.model-card[data-collapsed='true'] {
+    gap: 0;
+}
+.model-card-content {
+    overflow: hidden;
+}
+.model-card[data-collapsed='true'] .model-card-content {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+.model-card[data-collapsed='true'] .model-card-toggle-btn {
+    transform: rotate(-90deg);
+}
+
+/* --- Model Controls --- */
+.model-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+.model-controls .variant-selector {
+    flex-grow: 1;
+    font-size: 0.8rem;
+}
+.model-controls .select-model-btn,
+.model-controls .download-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    height: 33px;
+}
+
+/* --- Progress Bar for Downloads --- */
+.progress-bar-container {
+    height: 8px;
+    width: 100%;
+    background-color: var(--bg-primary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--accent-primary);
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.1s linear;
+}
