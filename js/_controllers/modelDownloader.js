@@ -1,7 +1,6 @@
 import { state, updateModelStatus, setDownloadProgress } from '../state.js';
 import { dom } from '../dom.js';
 import { checkAllModelsStatus } from './fileSystemController.js';
-import { renderModelsList } from '../ui/models.js';
 
 /**
  * Downloads a model repository from Hugging Face, including only .onnx and .json files.
@@ -24,7 +23,6 @@ export async function downloadModel(moduleId) {
         total: 0,
         filename: 'Fetching file list...',
     });
-    renderModelsList();
 
     try {
         const api_url = `https://huggingface.co/api/models/${moduleId}`;
@@ -62,7 +60,6 @@ export async function downloadModel(moduleId) {
                 total: filesToDownload.length,
                 filename: filePath,
             });
-            renderModelsList();
 
             const pathParts = filePath.split('/');
             let currentHandle = moduleDirHandle;
@@ -89,12 +86,11 @@ export async function downloadModel(moduleId) {
 
         setDownloadProgress({ status: 'idle', moduleId: null });
         dom.statusText().textContent = `Status: Model "${module.name}" downloaded successfully!`;
-        checkAllModelsStatus();
+        await checkAllModelsStatus();
     } catch (error) {
         console.error('Download failed:', error);
         setDownloadProgress({ status: 'idle', moduleId: null });
         dom.statusText().textContent = `Status: Download for "${module.name}" failed. ${error.message}`;
         updateModelStatus(moduleId, { status: 'missing' });
-        renderModelsList();
     }
 }

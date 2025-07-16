@@ -7,7 +7,7 @@ import {
     setTheme,
     setUseGpu,
     setSidebarWidth,
-    setRuntimeConfig
+    setRuntimeConfig,
 } from '../state.js';
 import { runInference } from '../_controllers/modelController.js';
 import { downloadModel } from '../_controllers/modelDownloader.js';
@@ -19,40 +19,33 @@ import {
     connectToDirectory,
     saveAppState,
 } from '../_controllers/fileSystemController.js';
-import { renderStatus, applyTheme } from '../ui/main_component.js';
 import { openImageModal, closeImageModal } from '../ui/components/modal.js';
-import { renderGpuStatus } from '../ui/components/gpuStatus.js';
-import { applySidebarWidth } from '../ui/sidebar.js';
-import { renderModelsList } from '../ui/models.js';
-import { renderWorkbench, renderComparisonView } from '../ui/workbench.js';
 import { clearInputs } from './inputHandlers.js';
 
-// --- Individual Click Handler Functions ---
+// --- Individual Click Handler Functions (Now free of direct UI calls) ---
 
-async function handleConnectFolder() {
+function handleConnectFolder() {
     connectToDirectory();
 }
 
-async function handleToggleModelCollapse(e) {
+function handleToggleModelCollapse(e) {
     e.stopPropagation();
     const moduleId = e.target.closest('.model-card-toggle-btn').dataset
         .moduleId;
     if (!moduleId) return;
     toggleModelCollapsed(moduleId);
-    renderModelsList();
     saveAppState();
 }
 
-async function handleStarClick(e) {
+function handleStarClick(e) {
     e.stopPropagation();
     const moduleId = e.target.closest('.star-btn').dataset.moduleId;
     if (!moduleId) return;
     toggleModelStarred(moduleId);
-    renderModelsList();
     saveAppState();
 }
 
-async function activateModule(moduleId) {
+function activateModule(moduleId) {
     if (!moduleId || state.activeModuleId === moduleId) {
         return;
     }
@@ -74,26 +67,23 @@ async function activateModule(moduleId) {
 
     clearInputs();
     setActiveModuleId(moduleId);
-    renderModelsList();
-    await renderWorkbench();
-    renderStatus();
     saveAppState();
 }
 
-async function handleUseModel(e) {
+function handleUseModel(e) {
     e.stopPropagation();
     const moduleId = e.target.closest('.select-model-btn').dataset.moduleId;
-    await activateModule(moduleId);
+    activateModule(moduleId);
 }
 
-async function handleDownloadModel(e) {
+function handleDownloadModel(e) {
     e.stopPropagation();
     const moduleId = e.target.closest('.download-btn').dataset.moduleId;
     if (!moduleId) return;
     downloadModel(moduleId);
 }
 
-async function handleSelectCard(e) {
+function handleSelectCard(e) {
     const card = e.target.closest('.model-card');
     if (!card) return;
 
@@ -101,28 +91,28 @@ async function handleSelectCard(e) {
     if (e.target.closest('button, .star-btn')) {
         return;
     }
-    await activateModule(card.dataset.moduleId);
+    activateModule(card.dataset.moduleId);
 }
 
-async function handleRunInference() {
+function handleRunInference() {
     runInference();
 }
 
-async function handleViewInput() {
+function handleViewInput() {
     if (state.inputDataURLs.length > 0) {
         openImageModal('data-url', state.inputDataURLs[0]);
     }
 }
 
-async function handleCopyOutput() {
+function handleCopyOutput() {
     copyOutputToClipboard();
 }
 
-async function handleSaveOutput() {
+function handleSaveOutput() {
     saveOutputToFile();
 }
 
-async function handleViewOutput() {
+function handleViewOutput() {
     if (!state.outputData) return;
     const imageData = Array.isArray(state.outputData)
         ? state.outputData[0]
@@ -132,35 +122,30 @@ async function handleViewOutput() {
     }
 }
 
-async function handleToggleSlideCompare() {
+function handleToggleSlideCompare() {
     const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
     setComparisonMode(newMode);
-    await renderComparisonView();
 }
 
-async function handleToggleHoldCompare() {
+function handleToggleHoldCompare() {
     const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
     setComparisonMode(newMode);
-    await renderComparisonView();
 }
 
-async function handleToggleTheme() {
+function handleToggleTheme() {
     const newTheme = state.theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    applyTheme();
     saveAppState();
 }
 
-async function handleToggleGpu() {
+function handleToggleGpu() {
     if (!state.gpuSupported) return;
     setUseGpu(!state.useGpu);
-    renderGpuStatus();
     saveAppState();
 }
 
-async function handleResetSidebar() {
+function handleResetSidebar() {
     setSidebarWidth(500);
-    applySidebarWidth();
     saveAppState();
 }
 
@@ -186,7 +171,7 @@ const clickHandlers = {
 };
 
 export function initClickListeners() {
-    document.body.addEventListener('click', async e => {
+    document.body.addEventListener('click', e => {
         // Modal-specific close conditions
         const modal = e.target.closest('#image-modal');
         if (modal && e.target === modal) {
@@ -212,7 +197,7 @@ export function initClickListeners() {
         // Delegated clicks
         for (const [selector, handler] of Object.entries(clickHandlers)) {
             if (e.target.closest(selector)) {
-                await handler(e);
+                handler(e); // Note: Removed await as handlers are sync now
                 return;
             }
         }

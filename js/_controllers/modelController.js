@@ -6,7 +6,6 @@ import {
     setInferenceDuration,
 } from '../state.js';
 import { dom } from '../dom.js';
-import { renderStatus } from '../ui/main_component.js';
 import { prepareModelFiles } from './modelFileManager.js';
 
 let inferenceWorker;
@@ -30,9 +29,10 @@ export function initWorker() {
                 setInferenceDuration(duration);
                 setOutputData(data);
                 setProcessing(false);
-                renderStatus();
             }
         } else if (type === 'status') {
+            // This is a direct status update from the worker and is fine to leave here,
+            // as it doesn't rely on the main app's state object.
             const statusEl = dom.statusText();
             if (statusEl) statusEl.textContent = `Status: ${data}`;
         }
@@ -57,7 +57,6 @@ export async function runInference() {
     setInferenceStartTime(Date.now());
     setInferenceDuration(null);
     setOutputData(null);
-    renderStatus();
 
     try {
         if (
@@ -73,7 +72,6 @@ export async function runInference() {
         dom.statusText().textContent = `Error: ${error.message}`;
         setProcessing(false);
         setInferenceStartTime(null);
-        renderStatus();
     }
 }
 

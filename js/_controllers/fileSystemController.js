@@ -11,12 +11,6 @@ import {
     setUseGpu,
     setProcessingMode,
 } from '../state.js';
-import { renderModelsList } from '../ui/models.js';
-import {
-    applyTheme,
-} from '../ui/main_component.js';
-import {
-    applySidebarWidth, renderFolderConnectionStatus} from '../ui/sidebar.js';
 
 const DIRECTORY_HANDLE_KEY = 'modelsDirectoryHandle';
 const APP_STATE_KEY = 'aiPowerToysState';
@@ -25,51 +19,50 @@ export async function connectToDirectory() {
     try {
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         await set(DIRECTORY_HANDLE_KEY, handle);
-        setDirectoryHandle(handle);
-        renderFolderConnectionStatus();
-        // Re-check statuses and save state after connecting
+        setDirectoryHandle(handle); // This will trigger UI updates via event bus
         await checkAllModelsStatus();
         await saveAppState();
     } catch (error) {
         console.error('Error connecting to directory:', error);
     }
 }
-
 export async function loadDirectoryHandle() {
-    // Load general app state first. This includes theme, sidebarWidth, starredModels, modelOrder, AND collapsedModels.
     await loadAppState();
     const handle = await get(DIRECTORY_HANDLE_KEY);
     if (handle) {
-        // Check permission for the loaded handle
         if (
             (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
         ) {
             setDirectoryHandle(handle);
-            renderFolderConnectionStatus();
-            await checkAllModelsStatus(); // Check statuses based on loaded directory
+            await checkAllModelsStatus();
             return true;
         } else {
-            // Permission revoked, clear the handle and reset state.
             console.warn('Permission revoked for directory handle. Resetting.');
-            await set(DIRECTORY_HANDLE_KEY, null); // Clear the stored handle
-            setDirectoryHandle(null); // Clear from state
+            await set(DIRECTORY_HANDLE_KEY, null);
+            setDirectoryHandle(null);
         }
     }
-    renderFolderConnectionStatus(); // Update UI even if no handle found
+    // Set handle to null if nothing was loaded, to trigger "Not Connected" state
+    if (!state.directoryHandle) {
+        setDirectoryHandle(null);
+    }
     return false;
 }
 
 export async function checkAllModelsStatus() {
+    // Sequentially check models to prevent race conditions on UI updates
     for (const module of state.modules) {
         await checkModelStatus(module);
     }
 }
 
 async function checkModelStatus(module) {
-    if (!state.directoryHandle) return;
+    if (!state.directoryHandle) {
+        updateModelStatus(module.id, { status: 'missing' }); // Set to missing if no dir
+        return;
+    }
 
     updateModelStatus(module.id, { status: 'checking' });
-    renderModelsList();
 
     try {
         const repoDirName = module.id.split('/')[1];
@@ -81,59 +74,44 @@ async function checkModelStatus(module) {
         let onnxSubDir = '';
 
         try {
-            // Prefer the 'onnx' subdirectory
             const onnxDirHandle = await moduleDirHandle.getDirectoryHandle(
                 'onnx'
             );
             onnxSubDir = 'onnx/';
             for await (const name of onnxDirHandle.keys()) {
-                if (name.endsWith('.onnx')) {
-                    onnxFiles.push(name);
-                }
+                if (name.endsWith('.onnx')) onnxFiles.push(name);
             }
         } catch (e) {
-            // Fallback to root directory of the model
             for await (const name of moduleDirHandle.keys()) {
-                if (name.endsWith('.onnx')) {
-                    onnxFiles.push(name);
-                }
+                if (name.endsWith('.onnx')) onnxFiles.push(name);
             }
         }
 
-        if (onnxFiles.length === 0) {
-            throw new Error(
-                `Found repository directory, but no .onnx files were found.`
-            );
-        }
+        if (onnxFiles.length === 0) throw new Error('No .onnx files found.');
 
-        // Add the subdirectory prefix back to the file names for path consistency
         const prefixedOnnxFiles = onnxFiles.map(file => `${onnxSubDir}${file}`);
-
         let discoveredVariants = parseAllVariants(prefixedOnnxFiles);
 
         if (discoveredVariants.length > 0) {
             discoveredVariants = sortVariants(discoveredVariants);
+            const existingStatus = state.modelStatuses[module.id] || {};
+            const selectedVariant = discoveredVariants.some(
+                v => v.name === existingStatus.selectedVariant
+            )
+                ? existingStatus.selectedVariant
+                : discoveredVariants[0].name;
 
             updateModelStatus(module.id, {
                 status: 'found',
                 discoveredVariants: discoveredVariants,
-                selectedVariant: discoveredVariants.some(
-                    v =>
-                        v.name ===
-                        state.modelStatuses[module.id]?.selectedVariant
-                )
-                    ? state.modelStatuses[module.id].selectedVariant
-                    : discoveredVariants[0].name,
+                selectedVariant: selectedVariant,
             });
         } else {
-            throw new Error(`No recognized ONNX model variants found.`);
+            throw new Error('No recognized ONNX model variants found.');
         }
     } catch (error) {
-        console.warn(`Model check failed for "${module.id}":`, error.message);
         updateModelStatus(module.id, { status: 'missing' });
     }
-
-    renderModelsList();
 }
 
 /**
@@ -270,12 +248,15 @@ function sortVariants(variants) {
 async function loadAppState() {
     const savedState = await get(APP_STATE_KEY);
     if (savedState) {
-        setSidebarWidth(savedState.sidebarWidth || 500);
+        // Use state setters to ensure events are fired for initial UI render
         setTheme(savedState.theme || 'light');
+        setSidebarWidth(savedState.sidebarWidth || 500);
         if (state.gpuSupported && typeof savedState.useGpu !== 'undefined') {
             setUseGpu(savedState.useGpu);
         }
         setProcessingMode(savedState.processingMode || 'batch');
+
+        // These don't have direct UI effects, so they can be set directly
         setStarredModels(new Set(savedState.starredModels || []));
         setModelOrder(savedState.modelOrder || []);
 
@@ -287,22 +268,22 @@ async function loadAppState() {
             collapsedModelsToLoad = new Set(savedState.collapsedModels);
         } else {
             if (state.modules && state.modules.length > 0) {
-                const allModuleIds = state.modules.map(m => m.id);
-                collapsedModelsToLoad = new Set(allModuleIds);
+                collapsedModelsToLoad = new Set(state.modules.map(m => m.id));
             }
         }
         setCollapsedModels(collapsedModelsToLoad);
     } else {
+        // Default initial state
+        setTheme('light');
+        setSidebarWidth(500);
         if (state.modules && state.modules.length > 0) {
-            const allModuleIds = state.modules.map(m => m.id);
-            setCollapsedModels(new Set(allModuleIds));
+            setCollapsedModels(new Set(state.modules.map(m => m.id)));
         } else {
             setCollapsedModels(new Set());
         }
     }
 
-    applyTheme();
-    applySidebarWidth();
+    // The UI updates for these are now handled by subscriptions
 }
 
 /**

@@ -1,15 +1,9 @@
 import '@fontsource/material-icons';
 import { setModules, setGpuSupported, setUseGpu } from './state.js';
 import { renderApp } from './ui/main_component.js';
-import { renderFolderConnectionStatus } from './ui/sidebar.js';
-import { renderGpuStatus } from './ui/components/gpuStatus.js';
-import { renderWorkbench } from './ui/workbench.js';
-import { initWorker } from './_controllers/modelController.js';
 import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
-import {
-    initWorkbenchEvents,
-    initGlobalEvents,
-} from './_events/workbenchEvents.js';
+import { initEventListeners } from './_events/workbenchEvents.js';
+import { initWorker } from './_controllers/modelController.js';
 
 async function loadAllModules() {
     try {
@@ -34,26 +28,24 @@ async function loadAllModules() {
 }
 
 async function main() {
+    // Initialize system state
     const isGpuSupported = 'gpu' in navigator;
     setGpuSupported(isGpuSupported);
-    setUseGpu(isGpuSupported);
+    setUseGpu(isGpuSupported); // Default to on if supported
 
+    // Load module configs
     const allModules = await loadAllModules();
     setModules(allModules);
 
+    // Initial render of the app structure
     await renderApp();
-    renderGpuStatus();
 
+    // Load persistent state (this will trigger initial render events)
     await loadDirectoryHandle();
-    renderFolderConnectionStatus();
 
-    renderGpuStatus();
-
+    // Initialize worker and all event listeners/subscriptions
     initWorker();
-    initGlobalEvents();
-    initWorkbenchEvents();
-
-    await renderWorkbench();
+    initEventListeners();
 }
 
 main();

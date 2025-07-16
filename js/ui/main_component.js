@@ -3,8 +3,32 @@ import { state } from '../state.js';
 import { renderModelsList } from './models.js';
 import { renderInputState } from './components/inputRenderer.js';
 import { renderOutputState } from './components/outputRenderer.js';
+import { eventBus } from '../_events/eventBus.js';
 
 let timerInterval = null;
+
+// --- NEW: Module-level cache for frequently accessed DOM elements ---
+let uiCache = {};
+
+/**
+ * Caches references to frequently accessed DOM elements to improve performance
+ * by avoiding repeated document queries.
+ * This should be called after major UI components are rendered or re-rendered.
+ */
+export function cacheDOMElements() {
+    uiCache = {
+        statusEl: dom.statusText(),
+        runBtn: dom.runInferenceBtn(),
+        timerEl: dom.inferenceTimer(),
+        clearInputBtn: dom.clearInputBtn(),
+        copyBtn: dom.copyBtn(),
+        saveBtn: dom.saveBtn(),
+        viewInputBtn: dom.viewInputBtn(),
+        viewOutputBtn: dom.viewOutputBtn(),
+        compareSlideBtn: dom.compareSlideBtn(),
+        compareHoldBtn: dom.compareHoldBtn(),
+    };
+}
 
 export async function renderApp() {
     const appContainer = dom.appContainer();
@@ -23,26 +47,32 @@ export async function renderApp() {
         '/components/views/view_workbench.html'
     );
     dom.centerStage().innerHTML = await workbenchResponse.text();
-
-    renderModelsList();
+    cacheDOMElements();
 }
 
+/**
+ * Renders the global status of the application, including button states and text.
+ * Uses cached DOM elements for high performance.
+ */
 export function renderStatus() {
     renderInputState();
     renderOutputState();
 
-    const statusEl = dom.statusText();
-    const runBtn = dom.runInferenceBtn();
-    const timerEl = dom.inferenceTimer();
-    if (!statusEl || !runBtn || !timerEl) return;
+    // --- MODIFIED: Use the cached elements instead of querying the DOM ---
+    const {
+        statusEl,
+        runBtn,
+        timerEl,
+        clearInputBtn,
+        copyBtn,
+        saveBtn,
+        viewInputBtn,
+        viewOutputBtn,
+        compareSlideBtn,
+        compareHoldBtn,
+    } = uiCache;
 
-    const clearInputBtn = dom.clearInputBtn();
-    const copyBtn = dom.copyBtn();
-    const saveBtn = dom.saveBtn();
-    const viewInputBtn = dom.viewInputBtn();
-    const viewOutputBtn = dom.viewOutputBtn();
-    const compareSlideBtn = dom.compareSlideBtn();
-    const compareHoldBtn = dom.compareHoldBtn();
+    if (!statusEl || !runBtn || !timerEl) return;
 
     const imageReady = state.inputDataURLs.length > 0;
     const audioReady = state.inputAudioURL !== null;
@@ -123,4 +153,24 @@ export function applyTheme() {
         sunIcon.classList.toggle('hidden', isDark);
         moonIcon.classList.toggle('hidden', !isDark);
     }
+}
+
+// --- NEW: Subscription setup ---
+export function initMainComponentSubscriptions() {
+    eventBus.on('themeChanged', applyTheme);
+
+    // Any state change that could affect the status text or button states
+    // should trigger a renderStatus() call.
+    const renderStatusEvents = [
+        'inputDataChanged',
+        'outputDataChanged',
+        'processingStateChanged',
+        'inferenceStateChanged',
+        'activeModuleChanged',
+        'selectedVariantChanged',
+    ];
+    renderStatusEvents.forEach(event => eventBus.on(event, renderStatus));
+
+    // Initial render calls based on initial state
+    renderStatus();
 }

@@ -5,6 +5,8 @@ import {
     handleImageDropAreaEvents,
     handleAudioDropAreaEvents,
 } from '../_events/workbenchEvents.js';
+import { cacheDOMElements } from './main_component.js';
+import { eventBus } from '../_events/eventBus.js';
 
 let inputImageForCompare = null;
 let imageBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -75,6 +77,9 @@ export async function renderWorkbench() {
         inputContainer.innerHTML = '';
         outputContainer.innerHTML = '';
     }
+
+    // --- NEW: Re-populate the UI element cache after re-rendering the workbench ---
+    cacheDOMElements();
 
     const newOutputArea = dom.outputArea();
     if (newOutputArea) {
@@ -320,4 +325,15 @@ export async function redrawCompareCanvas(splitX_visual) {
         inputClipX,
         inputDest.height
     );
+}
+
+// --- NEW: Subscription setup ---
+export function initWorkbenchSubscriptions() {
+    eventBus.on('activeModuleChanged', renderWorkbench);
+    eventBus.on('processingModeChanged', renderWorkbench); // To re-render runtime controls
+    eventBus.on('comparisonModeChanged', renderComparisonView);
+    eventBus.on('outputDataChanged', renderComparisonView);
+
+    // Initial render
+    renderWorkbench();
 }

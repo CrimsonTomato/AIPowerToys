@@ -4,12 +4,10 @@ import {
     setInputDataURLs,
     setInputAudioURL,
 } from '../state.js';
-import { renderStatus } from '../ui/main_component.js';
 
 export function clearInputs() {
     clearInputDataURLs();
     clearInputAudioURL();
-    renderStatus();
 }
 
 export async function loadAudioFile(file) {
@@ -17,7 +15,6 @@ export async function loadAudioFile(file) {
     clearInputs();
     const url = URL.createObjectURL(file);
     setInputAudioURL(url, file.name);
-    renderStatus();
 }
 
 export async function loadImageFiles(files) {
@@ -34,5 +31,4 @@ export async function loadImageFiles(files) {
     });
     urls = (await Promise.all(readPromises)).filter(Boolean);
     setInputDataURLs(urls);
-    renderStatus();
 }

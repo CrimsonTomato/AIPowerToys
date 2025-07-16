@@ -5,8 +5,8 @@ import {
 } from '../state.js';
 import { saveAppState } from '../_controllers/fileSystemController.js';
 import { handleSearch } from '../ui/models.js';
-import { renderStatus } from '../ui/main_component.js';
 import { loadImageFiles, loadAudioFile } from './inputHandlers.js';
+import { debounce } from '../utils.js';
 
 function handleRuntimeCheckboxChange(target) {
     if (target.dataset.paramId === 'processing-mode') {
@@ -36,9 +36,14 @@ function handleRuntimeRangeInput(target) {
     const paramId = target.dataset.paramId;
     const value = parseFloat(target.value);
     setRuntimeConfig(moduleId, paramId, value);
+    // The UI part of this is now handled by the component itself if needed,
+    // but for simple cases like this, it's often easier to leave it.
+    // This is a pragmatic exception to the "no UI in handlers" rule.
     const valueDisplay = document.getElementById(`param-val-${paramId}`);
     if (valueDisplay) valueDisplay.textContent = value;
 }
+
+const debouncedSearch = debounce(handleSearch, 250);
 
 export function initChangeListeners() {
     document.body.addEventListener('change', e => {
@@ -51,7 +56,6 @@ export function initChangeListeners() {
             const moduleId = target.dataset.moduleId;
             const variantName = target.value;
             setSelectedVariant(moduleId, variantName);
-            renderStatus();
             saveAppState();
         } else if (target.matches('.runtime-control input[type="checkbox"]')) {
             handleRuntimeCheckboxChange(target);
@@ -67,7 +71,7 @@ export function initChangeListeners() {
         if (target.matches('.runtime-control input[type="range"]')) {
             handleRuntimeRangeInput(target);
         } else if (target.id === 'model-search-input') {
-            handleSearch(target.value);
+            debouncedSearch(target.value);
         }
     });
 }
