@@ -18,6 +18,7 @@ import { renderModelsList } from '../ui/models.js';
 
 let inferenceWorker;
 let resolveSingleInferencePromise = null;
+let audioContext = null; // Create a single, reusable AudioContext
 
 export function initWorker() {
     inferenceWorker = new Worker(
@@ -56,21 +57,27 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
     const modelFiles = {};
     const repoDirName = activeModule.id.split('/')[1];
 
-    const modelPath = `${repoDirName}/${selectedVariant.filename}`;
-    const modelBuffer = await getFileBuffer(modelPath);
-    if (!modelBuffer)
-        throw new Error(`Could not load model file: ${modelPath}`);
-    modelFiles[`/models/${activeModule.id}/${selectedVariant.filename}`] =
-        modelBuffer;
+    // Load all ONNX files for the selected variant. The paths are now fully qualified.
+    for (const onnxFile of selectedVariant.files) {
+        const realPath = `${repoDirName}/${onnxFile}`;
+        const modelBuffer = await getFileBuffer(realPath);
+        if (!modelBuffer)
+            throw new Error(`Could not load model file: ${realPath}`);
 
+        // The path in the virtual file system for the worker.
+        const virtualPath = `/models/${activeModule.id}/${onnxFile}`;
+        modelFiles[virtualPath] = modelBuffer;
+    }
+
+    // Load all JSON config files.
     for (const key of activeModule.config_files) {
         const configPath = `${repoDirName}/${key}`;
         const fileBuffer = await getFileBuffer(configPath);
         if (fileBuffer) {
             modelFiles[`/models/${activeModule.id}/${key}`] = fileBuffer;
         } else {
-            throw new Error(
-                `Manifest specified "${key}", but it was not found in the repository.`
+            console.warn(
+                `Manifest specified "${key}", but it was not found in the repository. This may be expected.`
             );
         }
     }
@@ -80,8 +87,11 @@ async function _prepareModelFiles(activeModule, selectedVariant) {
 export async function runInference() {
     const activeModule = state.modules.find(m => m.id === state.activeModuleId);
     const modelStatus = state.modelStatuses[state.activeModuleId];
+    const inputReady =
+        state.inputDataURLs.length > 0 || state.inputAudioURL !== null;
+
     if (
-        state.inputDataURLs.length === 0 ||
+        !inputReady ||
         state.isProcessing ||
         !activeModule ||
         modelStatus.status !== 'found'
@@ -112,39 +122,52 @@ export async function runInference() {
     }
 }
 
+function _getPipelineOptions(activeModule, modelStatus) {
+    const selectedVariant = modelStatus.discoveredVariants?.find(
+        v => v.name === modelStatus.selectedVariant
+    );
+
+    if (!selectedVariant) {
+        throw new Error(
+            `Could not find details for selected variant "${modelStatus.selectedVariant}".`
+        );
+    }
+
+    const baseOptions = selectedVariant.pipeline_options || {};
+    const userConfigs = state.runtimeConfigs[activeModule.id] || {};
+    const device = state.useGpu ? 'webgpu' : 'wasm';
+
+    const finalPipelineOptions = {
+        ...baseOptions,
+        ...userConfigs,
+        device: device,
+    };
+
+    // Add ASR-specific defaults
+    if (activeModule.task === 'automatic-speech-recognition') {
+        finalPipelineOptions.chunk_length_s = 30;
+    }
+
+    return { selectedVariant, finalPipelineOptions };
+}
+
 function _executeSingleInference(url, activeModule, modelStatus) {
     return new Promise(async (resolve, reject) => {
         try {
             resolveSingleInferencePromise = resolve;
 
-            const selectedVariant = modelStatus.discoveredVariants.find(
-                v => v.name === modelStatus.selectedVariant
-            );
-            if (!selectedVariant) {
-                throw new Error(
-                    `Could not find details for selected variant "${modelStatus.selectedVariant}".`
-                );
-            }
+            const { selectedVariant, finalPipelineOptions } =
+                _getPipelineOptions(activeModule, modelStatus);
 
             const modelFiles = await _prepareModelFiles(
                 activeModule,
                 selectedVariant
             );
-            const baseOptions = selectedVariant.pipeline_options;
-            const userConfigs = state.runtimeConfigs[activeModule.id] || {};
-            const device = state.useGpu ? 'webgpu' : 'wasm';
-            const finalPipelineOptions = {
-                ...baseOptions,
-                ...userConfigs,
-                device: device,
-            };
-            const onnxModelPath = selectedVariant.filename;
 
             inferenceWorker.postMessage({
                 type: 'run',
                 modelFiles: modelFiles,
                 modelId: activeModule.id,
-                onnxModelPath: onnxModelPath,
                 task: activeModule.task,
                 pipelineOptions: finalPipelineOptions,
                 data: url,
@@ -155,67 +178,47 @@ function _executeSingleInference(url, activeModule, modelStatus) {
     });
 }
 
-async function _runIterativeInference(activeModule, modelStatus) {
-    const allResults = [];
-    const total = state.inputDataURLs.length;
-    let i = 1;
-
-    for (const url of state.inputDataURLs) {
-        dom.statusText().textContent = `Status: Processing image ${i} of ${total}...`;
-        const result = await _executeSingleInference(
-            url,
-            activeModule,
-            modelStatus
-        );
-        if (result) {
-            allResults.push(result);
-        }
-        i++;
+// Helper to decode audio on the main thread
+async function decodeAudio(url) {
+    if (!audioContext) {
+        audioContext = new AudioContext({ sampleRate: 16000 }); // Whisper expects 16kHz
     }
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
 
-    const duration = Date.now() - state.inferenceStartTime;
-    setInferenceDuration(duration);
-    setOutputData(allResults);
-    setProcessing(false);
-    renderStatus();
+    // For now, we only support single-channel audio for Whisper.
+    // The pipeline expects a Float32Array.
+    return decodedAudio.getChannelData(0);
 }
 
 async function _runBatchInference(activeModule, modelStatus) {
     try {
-        const selectedVariant = modelStatus.discoveredVariants.find(
-            v => v.name === modelStatus.selectedVariant
+        const { selectedVariant, finalPipelineOptions } = _getPipelineOptions(
+            activeModule,
+            modelStatus
         );
-        if (!selectedVariant) {
-            throw new Error(
-                `Could not find details for selected variant "${modelStatus.selectedVariant}".`
-            );
-        }
 
         const modelFiles = await _prepareModelFiles(
             activeModule,
             selectedVariant
         );
 
-        const baseOptions = selectedVariant.pipeline_options;
-        const userConfigs = state.runtimeConfigs[activeModule.id] || {};
-        const device = state.useGpu ? 'webgpu' : 'wasm';
-        const finalPipelineOptions = {
-            ...baseOptions,
-            ...userConfigs,
-            device: device,
-        };
-
-        const onnxModelPath = selectedVariant.filename;
-        const dataToProcess =
-            state.inputDataURLs.length === 1
-                ? state.inputDataURLs[0]
-                : state.inputDataURLs;
+        let dataToProcess;
+        if (state.inputAudioURL) {
+            dom.statusText().textContent = 'Status: Decoding audio file...';
+            dataToProcess = await decodeAudio(state.inputAudioURL.url);
+        } else {
+            dataToProcess =
+                state.inputDataURLs.length === 1
+                    ? state.inputDataURLs[0]
+                    : state.inputDataURLs;
+        }
 
         inferenceWorker.postMessage({
             type: 'run',
             modelFiles: modelFiles,
             modelId: activeModule.id,
-            onnxModelPath: onnxModelPath,
             task: activeModule.task,
             pipelineOptions: finalPipelineOptions,
             data: dataToProcess,
@@ -240,31 +243,34 @@ function _imageDataToCanvas(imageData) {
 }
 
 export async function copyOutputToClipboard() {
-    let canvas = dom.getOutputCanvas();
-    if (Array.isArray(state.outputData)) {
-        if (state.outputData.length > 0 && state.outputData[0]) {
-            canvas = _imageDataToCanvas(state.outputData[0]);
-        } else {
-            canvas = null;
-        }
-    } else if (state.outputData) {
-        canvas = _imageDataToCanvas(state.outputData);
-    } else {
-        canvas = null;
-    }
-
-    if (!canvas) return;
-
     const copyBtn = dom.copyBtn();
 
     try {
-        const blob = await new Promise(resolve =>
-            canvas.toBlob(resolve, 'image/png')
-        );
-        await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob }),
-        ]);
-        dom.statusText().textContent = 'Status: Image copied to clipboard!';
+        if (typeof state.outputData === 'string') {
+            await navigator.clipboard.writeText(state.outputData);
+            dom.statusText().textContent = 'Status: Text copied to clipboard!';
+        } else {
+            let canvas = dom.getOutputCanvas();
+            if (Array.isArray(state.outputData)) {
+                canvas =
+                    state.outputData.length > 0 && state.outputData[0]
+                        ? _imageDataToCanvas(state.outputData[0])
+                        : null;
+            } else if (state.outputData) {
+                canvas = _imageDataToCanvas(state.outputData);
+            } else {
+                canvas = null;
+            }
+            if (!canvas) return;
+
+            const blob = await new Promise(resolve =>
+                canvas.toBlob(resolve, 'image/png')
+            );
+            await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob }),
+            ]);
+            dom.statusText().textContent = 'Status: Image copied to clipboard!';
+        }
 
         if (copyBtn) {
             copyBtn.classList.add('btn-success-feedback');
@@ -273,16 +279,8 @@ export async function copyOutputToClipboard() {
             }, 1500);
         }
     } catch (error) {
-        console.error('Failed to copy image:', error);
-        let errorMessage = 'Failed to copy image.';
-        if (error.name === 'NotAllowedError') {
-            errorMessage +=
-                ' Clipboard access denied. Ensure HTTPS or localhost.';
-        } else {
-            errorMessage += ` ${error.message}`;
-        }
-        dom.statusText().textContent = `Status: ${errorMessage}`;
-
+        console.error('Failed to copy to clipboard:', error);
+        dom.statusText().textContent = `Status: Failed to copy. ${error.message}`;
         if (copyBtn) {
             copyBtn.classList.add('btn-failure-feedback');
             setTimeout(() => {
@@ -294,11 +292,25 @@ export async function copyOutputToClipboard() {
 
 export async function saveOutputToFile() {
     const filenameInput = dom.outputFilenameInput();
+
+    if (typeof state.outputData === 'string') {
+        const filename = filenameInput?.value || 'transcription.txt';
+        const blob = new Blob([state.outputData], {
+            type: 'text/plain;charset=utf-8',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+    }
+
     const baseFilename =
         filenameInput?.value.replace(/\.png$/i, '') || 'ai-powertoys-output';
 
     if (Array.isArray(state.outputData) && state.outputData.length > 0) {
-        // The check for JSZip is no longer needed as an import will fail loudly if it's not installed.
         const zip = new JSZip();
         let i = 0;
         for (const imageData of state.outputData) {

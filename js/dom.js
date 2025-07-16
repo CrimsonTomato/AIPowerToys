@@ -35,6 +35,12 @@ export const dom = {
     getImageInputPlaceholder: () =>
         document.getElementById('image-input-placeholder'),
     imageInputGrid: () => document.getElementById('image-input-grid'),
+    getAudioPicker: () => document.getElementById('audio-picker'),
+    getAudioDropArea: () => document.getElementById('audio-drop-area'),
+    getAudioInputPlaceholder: () =>
+        document.getElementById('audio-input-placeholder'),
+    getAudioFilenameDisplay: () =>
+        document.getElementById('audio-filename-display'),
     inputControls: () =>
         document.querySelector('#image-drop-area .input-controls'),
     clearInputBtn: () => document.getElementById('clear-input-btn'),
@@ -42,9 +48,12 @@ export const dom = {
 
     // --- Output Area ---
     getOutputCanvas: () => document.getElementById('output-canvas'),
+    getTextOutputArea: () => document.getElementById('text-output-area'),
     outputArea: () => document.querySelector('.output-area'),
     outputControls: () =>
-        document.querySelector('.output-area .output-controls'),
+        document.querySelector(
+            '.output-area .output-controls, #text-output-container .output-controls'
+        ),
     copyBtn: () => document.getElementById('copy-btn'),
     saveBtn: () => document.getElementById('save-btn'),
     viewOutputBtn: () => document.getElementById('view-output-btn'),

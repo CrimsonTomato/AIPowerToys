@@ -72,37 +72,52 @@ async function checkModelStatus(module) {
     updateModelStatus(module.id, { status: 'checking' });
     renderModelsList();
 
-    let onnxDirHandle;
     try {
         const repoDirName = module.id.split('/')[1];
         const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
             repoDirName
         );
 
-        try {
-            onnxDirHandle = await moduleDirHandle.getDirectoryHandle('onnx');
-        } catch (e) {
-            throw new Error(
-                `Found repository directory, but the required 'onnx' subdirectory is missing.`
-            );
-        }
+        let onnxFiles = [];
+        let onnxSubDir = '';
 
-        let discoveredVariants = []; // Use `let` so we can reassign after sorting
-        for await (const [name, handle] of onnxDirHandle.entries()) {
-            if (handle.kind === 'file' && name.endsWith('.onnx')) {
-                const variant = parseVariantFromFilename(name);
-                if (variant) discoveredVariants.push(variant);
+        try {
+            // Prefer the 'onnx' subdirectory
+            const onnxDirHandle = await moduleDirHandle.getDirectoryHandle(
+                'onnx'
+            );
+            onnxSubDir = 'onnx/';
+            for await (const name of onnxDirHandle.keys()) {
+                if (name.endsWith('.onnx')) {
+                    onnxFiles.push(name);
+                }
+            }
+        } catch (e) {
+            // Fallback to root directory of the model
+            for await (const name of moduleDirHandle.keys()) {
+                if (name.endsWith('.onnx')) {
+                    onnxFiles.push(name);
+                }
             }
         }
 
+        if (onnxFiles.length === 0) {
+            throw new Error(
+                `Found repository directory, but no .onnx files were found.`
+            );
+        }
+
+        // Add the subdirectory prefix back to the file names for path consistency
+        const prefixedOnnxFiles = onnxFiles.map(file => `${onnxSubDir}${file}`);
+
+        let discoveredVariants = parseAllVariants(prefixedOnnxFiles);
+
         if (discoveredVariants.length > 0) {
-            // NEW: Sort the discovered variants
             discoveredVariants = sortVariants(discoveredVariants);
 
             updateModelStatus(module.id, {
                 status: 'found',
                 discoveredVariants: discoveredVariants,
-                // Ensure selectedVariant is still valid after sorting, or default to first
                 selectedVariant: discoveredVariants.some(
                     v =>
                         v.name ===
@@ -112,9 +127,7 @@ async function checkModelStatus(module) {
                     : discoveredVariants[0].name,
             });
         } else {
-            throw new Error(
-                `Found 'onnx' subdirectory, but it contains no .onnx model files.`
-            );
+            throw new Error(`No recognized ONNX model variants found.`);
         }
     } catch (error) {
         console.warn(`Model check failed for "${module.id}":`, error.message);
@@ -149,81 +162,85 @@ export async function getFileBuffer(relativePath) {
     }
 }
 
-/**
- * A data-driven map of known ONNX file suffixes to their display names
- * and corresponding pipeline options for Transformers.js.
- */
 const VARIANT_SUFFIX_MAP = {
+    '': { name: 'Full Precision (fp32)', options: { dtype: 'fp32' } },
     fp32: { name: 'Full Precision (fp32)', options: { dtype: 'fp32' } },
     fp16: { name: 'Half Precision (fp16)', options: { dtype: 'fp16' } },
-    q8: { name: '8-bit Quantized (q8)', options: { dtype: 'q8' } },
+    quantized: { name: 'Quantized (Default)', options: { quantized: true } },
     int8: { name: '8-bit Quantized (int8)', options: { dtype: 'int8' } },
     uint8: { name: '8-bit Quantized (uint8)', options: { dtype: 'uint8' } },
     q4: { name: '4-bit Quantized (q4)', options: { dtype: 'q4' } },
-    bnb4: { name: '4-bit Quantized (bnb4)', options: { dtype: 'q4' } }, // bnb4 often implies q4
+    bnb4: { name: '4-bit Quantized (bnb4)', options: { dtype: 'q4' } },
     q4f16: { name: '4-bit Quantized (q4f16)', options: { dtype: 'q4f16' } },
 };
 
-/**
- * A more intelligent helper function to create a variant object from an ONNX filename.
- * It uses a data map and regex for scalability and maintainability.
- * @param {string} filename - The name of the .onnx file (e.g., 'model_quantized.onnx').
- * @returns {object|null} A variant object or null if not a recognized pattern.
- */
-function parseVariantFromFilename(filename) {
-    const fullPath = `onnx/${filename}`;
+function getSuffix(filename) {
+    const base = filename
+        .replace(/\.onnx$/, '')
+        .split('/')
+        .pop(); // Get filename without path
+    const parts = base.split('_');
+    const lastPart = parts[parts.length - 1];
 
-    // Handle the two most common special cases first.
-    if (filename === 'model.onnx') {
-        return {
-            name: 'Full Precision (fp32)',
-            filename: fullPath,
-            pipeline_options: { dtype: 'fp32' },
-        };
-    }
-    if (filename === 'model_quantized.onnx') {
-        // This is a special flag in Transformers.js, often a default for int8.
-        return {
-            name: 'Quantized (Default)', // Use 'Quantized (Default)' as requested
-            filename: fullPath,
-            pipeline_options: { quantized: true },
-        };
+    if (Object.keys(VARIANT_SUFFIX_MAP).includes(lastPart)) {
+        return lastPart;
     }
 
-    // Use a regular expression to extract the suffix from "model_<suffix>.onnx"
-    const match = filename.match(/^model_(.+)\.onnx$/);
-    if (match && match[1]) {
-        const suffix = match[1];
-        const variantInfo = VARIANT_SUFFIX_MAP[suffix];
+    return '';
+}
 
-        if (variantInfo) {
-            // We found a known suffix in our map.
-            return {
-                name: variantInfo.name,
-                filename: fullPath,
-                pipeline_options: variantInfo.options,
-            };
+function getBaseName(filename) {
+    const base = filename
+        .replace(/\.onnx$/, '')
+        .split('/')
+        .pop();
+    const parts = base.split('_');
+    const lastPart = parts[parts.length - 1];
+
+    if (Object.keys(VARIANT_SUFFIX_MAP).includes(lastPart)) {
+        return parts.slice(0, -1).join('_');
+    }
+    return base;
+}
+
+function parseAllVariants(prefixedOnnxFiles) {
+    const variants = new Map();
+
+    for (const file of prefixedOnnxFiles) {
+        const suffix = getSuffix(file);
+        const baseName = getBaseName(file);
+
+        if (!variants.has(suffix)) {
+            variants.set(suffix, {
+                suffix: suffix,
+                name: VARIANT_SUFFIX_MAP[suffix]?.name || `Unknown (${suffix})`,
+                pipeline_options: VARIANT_SUFFIX_MAP[suffix]?.options || {},
+                filesByBase: new Map(), // Group by base name first
+            });
+        }
+        const variant = variants.get(suffix);
+        if (!variant.filesByBase.has(baseName)) {
+            variant.filesByBase.set(baseName, file);
         }
     }
 
-    // Fallback for any other .onnx file that doesn't match known patterns.
-    return {
-        name: `Unknown (${filename})`, // Provide a name for unknown variants
-        filename: fullPath,
-        pipeline_options: {}, // No specific options
-    };
+    // Convert files map to array of full file paths
+    return Array.from(variants.values()).map(v => ({
+        ...v,
+        files: Array.from(v.filesByBase.values()),
+        filesByBase: undefined, // clean up temp property
+    }));
 }
 
 /**
  * Sorts an array of variant objects according to a predefined order.
- * Order: "Quantized (Default)", "Full Precision (fp32)", "Half Precision (fp16)", then others alphabetically.
  * @param {Array<object>} variants - An array of variant objects.
  * @returns {Array<object>} The sorted array of variant objects.
  */
 function sortVariants(variants) {
     const order = [
-        'Quantized (Default)',
         'Full Precision (fp32)',
+        'Quantized (Default)',
         'Half Precision (fp16)',
     ];
 
@@ -231,94 +248,76 @@ function sortVariants(variants) {
         const indexA = order.indexOf(a.name);
         const indexB = order.indexOf(b.name);
 
-        // If both are in the predefined order, sort by their index
-        if (indexA !== -1 && indexB !== -1) {
-            return indexA - indexB;
-        }
-        // If only A is in the predefined order, A comes first
-        if (indexA !== -1) {
-            return -1;
-        }
-        // If only B is in the predefined order, B comes first
-        if (indexB !== -1) {
-            return 1;
-        }
-        // If neither is in the predefined order, sort alphabetically by name
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        const getQuantScore = name => {
+            if (name.includes('8-bit')) return 1;
+            if (name.includes('4-bit')) return 2;
+            return 99;
+        };
+        const scoreA = getQuantScore(a.name);
+        const scoreB = getQuantScore(b.name);
+        if (scoreA !== scoreB) return scoreA - scoreB;
+
         return a.name.localeCompare(b.name);
     });
 }
 
 /**
  * Loads all persistent application state from IndexedDB.
- * This includes theme, sidebar width, starred models, model order, and collapsed models.
  */
 async function loadAppState() {
     const savedState = await get(APP_STATE_KEY);
     if (savedState) {
-        // Load sidebar width
         setSidebarWidth(savedState.sidebarWidth || 500);
-        // Load theme
         setTheme(savedState.theme || 'light');
-        // Load GPU preference. Only override default if a preference is saved
-        // AND the GPU is supported by the browser.
         if (state.gpuSupported && typeof savedState.useGpu !== 'undefined') {
             setUseGpu(savedState.useGpu);
         }
-        // Load processing mode
         setProcessingMode(savedState.processingMode || 'batch');
-        // Load starred models (convert back to Set)
         setStarredModels(new Set(savedState.starredModels || []));
-        // Load model order
         setModelOrder(savedState.modelOrder || []);
 
-        // --- NEW: Load collapsed models state ---
         let collapsedModelsToLoad = new Set();
         if (
             savedState.collapsedModels &&
             Array.isArray(savedState.collapsedModels)
         ) {
-            // If we have saved collapsed state, use it.
             collapsedModelsToLoad = new Set(savedState.collapsedModels);
         } else {
-            // Default behavior: collapse ALL models if no specific state is saved.
-            // This ensures the cards are collapsed by default on first run or if the previous save was incomplete.
-            // We rely on state.modules being populated by main.js before this function is called.
             if (state.modules && state.modules.length > 0) {
                 const allModuleIds = state.modules.map(m => m.id);
                 collapsedModelsToLoad = new Set(allModuleIds);
             }
         }
-        // Update the state with the loaded or default collapsed models.
         setCollapsedModels(collapsedModelsToLoad);
-        // --- END NEW ---
     } else {
-        // If no saved state at all (e.g., first run), apply default collapsed state.
         if (state.modules && state.modules.length > 0) {
             const allModuleIds = state.modules.map(m => m.id);
-            setCollapsedModels(new Set(allModuleIds)); // Collapse all models by default
+            setCollapsedModels(new Set(allModuleIds));
         } else {
-            setCollapsedModels(new Set()); // Ensure it's a Set if modules are empty.
+            setCollapsedModels(new Set());
         }
     }
 
-    applyTheme(); // Apply theme immediately after loading
-    applySidebarWidth(); // Apply sidebar width immediately after loading
+    applyTheme();
+    applySidebarWidth();
 }
 
 /**
  * Saves the current application state to IndexedDB.
- * This includes theme, sidebar width, starred models, model order, and collapsed models.
  */
 export async function saveAppState() {
-    // Prepare the state to be saved
     const appState = {
         sidebarWidth: state.sidebarWidth,
         theme: state.theme,
         useGpu: state.useGpu,
         processingMode: state.processingMode,
-        starredModels: Array.from(state.starredModels), // Convert Set to Array for saving
+        starredModels: Array.from(state.starredModels),
         modelOrder: state.modelOrder,
-        collapsedModels: Array.from(state.collapsedModels), // Convert collapsed Set to Array for saving
+        collapsedModels: Array.from(state.collapsedModels),
     };
-    await set(APP_STATE_KEY, appState); // Save to IndexedDB
+    await set(APP_STATE_KEY, appState);
 }

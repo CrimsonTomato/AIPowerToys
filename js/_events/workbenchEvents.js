@@ -38,6 +38,8 @@ import {
     setUseGpu,
     setInputDataURLs,
     clearInputDataURLs,
+    setInputAudioURL,
+    clearInputAudioURL,
     setProcessingMode,
 } from '../state.js';
 let isDraggingSlider = false;
@@ -48,6 +50,20 @@ async function activateModule(moduleId) {
     if (!moduleId || state.activeModuleId === moduleId) {
         return; // Do nothing if no ID or already active
     }
+
+    // --- FIX: Pre-populate runtime configs with defaults when activating a module ---
+    const module = state.modules.find(m => m.id === moduleId);
+    if (module && module.configurable_params) {
+        for (const param of module.configurable_params) {
+            // Only set the default if a value for this param isn't already in the state.
+            // This preserves user choices if they switch away and back to a model.
+            if (state.runtimeConfigs[moduleId]?.[param.id] === undefined) {
+                setRuntimeConfig(moduleId, param.id, param.default);
+            }
+        }
+    }
+    // --- END FIX ---
+
     // When switching modules, clear the workbench inputs and outputs
     clearInputs();
     setActiveModuleId(moduleId);
@@ -137,7 +153,7 @@ async function handleViewOutput() {
     const imageData = Array.isArray(state.outputData)
         ? state.outputData[0]
         : state.outputData;
-    if (imageData) {
+    if (imageData && typeof imageData !== 'string') {
         openImageModal('image-data', imageData);
     }
 }
@@ -237,6 +253,9 @@ export function initWorkbenchEvents() {
         if (target.id === 'image-picker') {
             const files = target.files;
             if (files.length > 0) loadImageFiles(files);
+        } else if (target.id === 'audio-picker') {
+            const files = target.files;
+            if (files.length > 0) loadAudioFile(files[0]);
         } else if (target.matches('.variant-selector')) {
             const moduleId = target.dataset.moduleId;
             const variantName = target.value;
@@ -254,6 +273,12 @@ export function initWorkbenchEvents() {
             const moduleId = target.dataset.moduleId;
             const paramId = target.dataset.paramId;
             const value = target.checked;
+            setRuntimeConfig(moduleId, paramId, value);
+            saveAppState();
+        } else if (target.matches('.runtime-control select')) {
+            const moduleId = target.dataset.moduleId;
+            const paramId = target.dataset.paramId;
+            const value = target.value;
             setRuntimeConfig(moduleId, paramId, value);
             saveAppState();
         }
@@ -288,6 +313,7 @@ export function initWorkbenchEvents() {
     document.body.addEventListener('mouseleave', handleMouseUp);
 
     handleImageDropAreaEvents();
+    handleAudioDropAreaEvents();
 }
 
 export function initGlobalEvents() {
@@ -296,21 +322,35 @@ export function initGlobalEvents() {
 }
 
 function clearInputs() {
+    // Image
     clearInputDataURLs();
     const grid = dom.imageInputGrid();
+    if (grid) grid.innerHTML = '';
     const singlePreview = dom.getImagePreview();
-    const dropArea = dom.getImageDropArea();
-    const placeholder = dom.getImageInputPlaceholder();
-    if (grid) {
-        grid.innerHTML = '';
-        grid.classList.add('hidden');
-    }
-    if (singlePreview) {
-        singlePreview.src = '';
-        singlePreview.classList.add('hidden');
-    }
-    if (placeholder) placeholder.classList.remove('hidden');
-    if (dropArea) dropArea.removeAttribute('data-has-content');
+    if (singlePreview) singlePreview.src = '';
+
+    // Audio
+    clearInputAudioURL();
+    const audioFilename = dom.getAudioFilenameDisplay();
+    if (audioFilename) audioFilename.textContent = '';
+
+    // Reset all drop areas
+    document.querySelectorAll('[data-has-content="true"]').forEach(el => {
+        el.dataset.hasContent = 'false';
+        el.dataset.controlsVisible = 'false';
+    });
+    document.querySelectorAll('.hidden').forEach(el => {
+        if (el.id.includes('-placeholder')) el.classList.remove('hidden');
+    });
+
+    renderStatus();
+}
+
+async function loadAudioFile(file) {
+    if (!file || !file.type.startsWith('audio/')) return;
+    clearInputs(); // Clear any existing inputs
+    const url = URL.createObjectURL(file);
+    setInputAudioURL(url, file.name);
     renderStatus();
 }
 
@@ -356,6 +396,35 @@ function handleImageDropAreaEvents() {
         e => {
             const dt = e.dataTransfer;
             if (dt.files.length > 0) loadImageFiles(dt.files);
+        },
+        false
+    );
+}
+function handleAudioDropAreaEvents() {
+    const dropArea = dom.getAudioDropArea();
+    if (!dropArea) return;
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(
+            'dragover',
+            () => dropArea.classList.add('drag-over'),
+            false
+        );
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(
+            eventName,
+            () => dropArea.classList.remove('drag-over'),
+            false
+        );
+    });
+    dropArea.addEventListener(
+        'drop',
+        e => {
+            const dt = e.dataTransfer;
+            if (dt.files.length > 0) loadAudioFile(dt.files[0]);
         },
         false
     );

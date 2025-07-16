@@ -142,7 +142,7 @@
     height: 8px;
     width: 100%;
     background-color: var(--bg-primary);
-    border-radius: 4px;
+    border-radius: var(--radius);
     overflow: hidden;
     margin-top: 4px;
 }
@@ -189,17 +189,29 @@
 
 /* Input/Output Containers */
 #image-drop-area,
-.output-area {
+.output-area,
+.audio-drop-area {
     padding: 16px;
     border: 1px dashed var(--border-color);
     border-radius: var(--radius);
     position: relative;
     width: 100%;
-    padding-bottom: 65%; /* Maintain aspect ratio */
-    min-height: 200px;
     transition: background-color 0.1s ease-out, border-color 0.1s ease-out;
 }
-#image-drop-area:hover:not(.drag-over) {
+#image-drop-area,
+.output-area {
+    padding-bottom: 65%; /* Maintain aspect ratio */
+    min-height: 200px;
+}
+.audio-drop-area {
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#image-drop-area:hover:not(.drag-over),
+.audio-drop-area:hover:not(.drag-over) {
     background-color: var(--bg-secondary);
     border-color: var(--text-secondary);
 }
@@ -219,7 +231,8 @@
     padding: 10px;
     overflow: hidden;
 }
-.image-input-label {
+.image-input-label,
+.audio-input-label {
     cursor: pointer;
     color: var(--text-secondary);
     font-weight: 500;
@@ -231,7 +244,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
 }
+.audio-input-label .material-icons {
+    font-size: 3rem;
+}
+
 #image-preview,
 #output-canvas {
     max-width: 100%;
@@ -251,6 +269,28 @@
     border-radius: var(--radius);
     z-index: 1;
     margin-bottom: 0;
+}
+
+/* Text output area */
+#text-output-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+#text-output-area {
+    flex-grow: 1;
+    resize: none;
+    height: 100%;
+    min-height: 200px; /* Ensure a decent minimum height */
+    padding-top: 30px;
+}
+#text-output-container .output-controls {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* Control groups for input/output */
@@ -281,6 +321,7 @@
 }
 #image-drop-area[data-controls-visible='true'] .input-controls,
 #image-drop-area[data-controls-visible='true'] .input-view-controls,
+#audio-drop-area[data-controls-visible='true'] .input-controls,
 .output-area[data-controls-visible='true'] .output-controls,
 .output-area[data-controls-visible='true'] .output-view-controls {
     opacity: 1;

@@ -1,6 +1,7 @@
 import { dom } from '../dom.js';
 import { state, setComparisonMode, setOutputData } from '../state.js';
 import { getContainSize } from '../utils.js';
+import { initWorkbenchEvents } from '../_events/workbenchEvents.js';
 
 let inputImageForCompare = null;
 let imageBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -17,8 +18,9 @@ const comparisonResizeObserver = new ResizeObserver(() => {
 
 export async function renderWorkbench() {
     const workbenchArea = dom.workbenchArea();
-    const inputArea = dom.workbenchInputArea();
-    if (!workbenchArea || !inputArea) return;
+    const inputContainer = dom.workbenchInputArea();
+    const outputContainer = dom.workbenchOutputArea();
+    if (!workbenchArea || !inputContainer || !outputContainer) return;
 
     const oldOutputArea = dom.outputArea();
     if (oldOutputArea) {
@@ -41,12 +43,15 @@ export async function renderWorkbench() {
                     ? fetch(components.workbench_output).then(res => res.text())
                     : Promise.resolve(''),
             ]);
-            inputArea.innerHTML = inputHtml;
-            dom.workbenchOutputArea().innerHTML = outputHtml;
+            inputContainer.innerHTML = inputHtml;
+            outputContainer.innerHTML = outputHtml;
         } else {
-            inputArea.innerHTML = '';
-            dom.workbenchOutputArea().innerHTML = '';
+            inputContainer.innerHTML = '';
+            outputContainer.innerHTML = '';
         }
+
+        // Re-initialize events for new DOM content
+        initWorkbenchEvents();
 
         _renderRuntimeControls(activeModule);
 
@@ -64,8 +69,8 @@ export async function renderWorkbench() {
         workbenchArea.classList.add('hidden');
         if (outputOptionsContainer)
             outputOptionsContainer.classList.add('hidden');
-        inputArea.innerHTML = '';
-        dom.workbenchOutputArea().innerHTML = '';
+        inputContainer.innerHTML = '';
+        outputContainer.innerHTML = '';
     }
 
     const newOutputArea = dom.outputArea();
@@ -111,17 +116,36 @@ function _renderRuntimeControls(activeModule) {
     const renderParam = param => {
         const currentConfigs = state.runtimeConfigs[activeModule.id] || {};
         const currentValue = currentConfigs[param.id] ?? param.default;
+
+        const baseAttributes = `id="param-${param.id}" data-param-id="${param.id}" data-module-id="${activeModule.id}"`;
+
+        let controlHtml = '';
+
         if (param.type === 'slider') {
-            return `<div class="runtime-control"><label for="param-${param.id}">${param.name}: <span id="param-val-${param.id}">${currentValue}</span></label><input type="range" id="param-${param.id}" data-param-id="${param.id}" data-module-id="${activeModule.id}" min="${param.min}" max="${param.max}" step="${param.step}" value="${currentValue}"></div>`;
-        } else if (param.type === 'checkbox') {
-            return `<div class="runtime-control checkbox-control"><label for="param-${
-                param.id
-            }">${param.name}</label><input type="checkbox" id="param-${
-                param.id
-            }" data-param-id="${param.id}" data-module-id="${
-                activeModule.id
-            }" ${currentValue ? 'checked' : ''}></div>`;
+            controlHtml = `<input type="range" ${baseAttributes} min="${param.min}" max="${param.max}" step="${param.step}" value="${currentValue}">`;
+            return `<div class="runtime-control"><label for="param-${param.id}">${param.name}: <span id="param-val-${param.id}">${currentValue}</span></label>${controlHtml}</div>`;
         }
+
+        if (param.type === 'checkbox') {
+            controlHtml = `<input type="checkbox" ${baseAttributes} ${
+                currentValue ? 'checked' : ''
+            }>`;
+            return `<div class="runtime-control checkbox-control"><label for="param-${param.id}">${param.name}</label>${controlHtml}</div>`;
+        }
+
+        if (param.type === 'select') {
+            const optionsHtml = param.options
+                .map(
+                    opt =>
+                        `<option value="${opt.value}" ${
+                            currentValue === opt.value ? 'selected' : ''
+                        }>${opt.label}</option>`
+                )
+                .join('');
+            controlHtml = `<select class="select-input" ${baseAttributes}>${optionsHtml}</select>`;
+            return `<div class="runtime-control"><label for="param-${param.id}">${param.name}</label>${controlHtml}</div>`;
+        }
+
         return '';
     };
 
@@ -208,10 +232,12 @@ async function _getLoadedInputImage() {
 
 export async function renderComparisonView() {
     const outputArea = dom.outputArea();
+    if (!outputArea) return; // Exit if we are in text-output mode
+
     const slider = dom.imageCompareSlider();
     const slideBtn = dom.compareSlideBtn();
     const holdBtn = dom.compareHoldBtn();
-    if (!outputArea || !slider || !slideBtn || !holdBtn) return;
+    if (!slider || !slideBtn || !holdBtn) return;
 
     outputArea.dataset.compareMode = state.comparisonMode;
 
@@ -257,7 +283,7 @@ export async function renderComparisonView() {
         redrawCompareCanvas(imageBounds.x + imageBounds.width / 2);
     } else {
         slider.classList.add('hidden');
-        if (canCompare) {
+        if (canCompare && state.outputData.width) {
             _drawPlainOutputToCanvas();
         }
     }
@@ -283,7 +309,8 @@ export async function redrawCompareCanvas(splitX_visual) {
     const canvas = dom.getOutputCanvas();
     const ctx = canvas.getContext('2d');
     const inputImage = await _getLoadedInputImage();
-    if (!canvas || !inputImage || !state.outputData) return;
+    if (!canvas || !inputImage || !state.outputData || !state.outputData.width)
+        return;
 
     const canvasRect = canvas.getBoundingClientRect();
     const outputAreaRect = dom.outputArea().getBoundingClientRect();

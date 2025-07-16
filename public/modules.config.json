@@ -2,6 +2,7 @@
     "official_modules": [
         "/modules/depth_anything_small.json",
         "/modules/swin2sr_upscaler.json",
-        "/modules/rmbg.json"
+        "/modules/rmbg.json",
+        "/modules/whisper-tiny.json"
     ]
 }

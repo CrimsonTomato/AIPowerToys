@@ -19,7 +19,8 @@ export let state = {
     isProcessing: false,
     outputData: null,
     inferenceStartTime: null,
-    inputDataURLs: [],
+    inputDataURLs: [], // For images
+    inputAudioURL: null, // For audio
     inferenceDuration: null,
     downloadProgress: {
         status: 'idle',
@@ -124,6 +125,12 @@ export function setInputDataURLs(urls) {
 }
 export function clearInputDataURLs() {
     state.inputDataURLs = [];
+}
+export function setInputAudioURL(url, filename) {
+    state.inputAudioURL = url ? { url, filename } : null;
+}
+export function clearInputAudioURL() {
+    state.inputAudioURL = null;
 }
 export function setProcessingMode(mode) {
     state.processingMode = mode;

@@ -34,15 +34,7 @@ env.customCache = {
 
 self.onmessage = async e => {
     // We receive modelFiles, not a handle.
-    const {
-        type,
-        modelFiles,
-        onnxModelPath,
-        modelId,
-        task,
-        pipelineOptions,
-        data,
-    } = e.data;
+    const { type, modelFiles, modelId, task, pipelineOptions, data } = e.data;
 
     if (type === 'run') {
         try {
@@ -53,34 +45,8 @@ self.onmessage = async e => {
 
             // Clear the cache and populate it with the new files.
             fileCache.clear();
-            let onnxFileBuffer = null;
-            const onnxFileFullPath = `/models/${modelId}/${onnxModelPath}`;
-
             for (const [path, buffer] of Object.entries(modelFiles)) {
                 fileCache.set(path, new Blob([buffer]));
-                if (path === onnxFileFullPath) {
-                    onnxFileBuffer = buffer;
-                }
-            }
-
-            if (pipelineOptions?.device === 'webgpu' && onnxFileBuffer) {
-                const commonModelNames = [
-                    'model.onnx',
-                    'encoder_model.onnx',
-                    'decoder_model.onnx',
-                    'decoder_with_past_model.onnx',
-                ];
-                const directoryPath = onnxFileFullPath.substring(
-                    0,
-                    onnxFileFullPath.lastIndexOf('/') + 1
-                );
-                const modelBlob = new Blob([onnxFileBuffer]);
-                for (const name of commonModelNames) {
-                    const aliasPath = `${directoryPath}${name}`;
-                    if (!fileCache.has(aliasPath)) {
-                        fileCache.set(aliasPath, modelBlob);
-                    }
-                }
             }
 
             // --- PIPELINE CREATION/RE-USE LOGIC ---
@@ -119,8 +85,6 @@ self.onmessage = async e => {
             // --- DYNAMIC TASK HANDLER IMPORT ---
             let taskHandlerModule;
             try {
-                // MODIFIED: Use a string literal template that Vite can analyze.
-                // It now knows to look for files in './tasks/' that match the pattern '*.task.js'.
                 taskHandlerModule = await import(`./tasks/${task}.task.js`);
             } catch (error) {
                 console.error(
@@ -152,17 +116,12 @@ self.onmessage = async e => {
                 data: 'Post-processing results...',
             });
 
-            // --- DATA NORMALIZATION FOR POST-PROCESSING ---
-            // If the original input `data` was a single item, the pipeline output
-            // is a single result. We wrap it in an array to create a "batch of one"
-            // so that the following logic can treat everything as a batch.
             const outputBatch = Array.isArray(data) ? output : [output];
             const inputArray = Array.isArray(data) ? data : [data];
 
             const processingPromises = outputBatch.map(
                 (singleImageResult, index) => {
                     const inputUrl = inputArray[index];
-                    // Call the dynamically imported postprocess function, passing it the result for one image.
                     return taskHandlerModule.postprocess(
                         singleImageResult,
                         inputUrl,
@@ -173,7 +132,6 @@ self.onmessage = async e => {
 
             const renderables = await Promise.all(processingPromises);
 
-            // If the original input was not an array, return a single item instead of an array of one.
             const finalData = Array.isArray(data)
                 ? renderables
                 : renderables[0];
@@ -185,7 +143,6 @@ self.onmessage = async e => {
                 type: 'status',
                 data: `Error: ${error.message}`,
             });
-            // Reset pipeline on error
             currentPipeline = null;
             currentModelId = null;
         }
