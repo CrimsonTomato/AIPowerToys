@@ -61,8 +61,8 @@ async function main() {
     renderGpuStatus();
 
     initWorker();
-    initWorkbenchEvents();
-    initGlobalEvents();
+    initGlobalEvents(); // Handles theme, sidebar width
+    initWorkbenchEvents(); // Handles all click/change/drag events via delegation
 
     await renderWorkbench(); // Renders the initial (empty) workbench
 }

@@ -58,7 +58,14 @@ async function activateModule(moduleId) {
             // Only set the default if a value for this param isn't already in the state.
             // This preserves user choices if they switch away and back to a model.
             if (state.runtimeConfigs[moduleId]?.[param.id] === undefined) {
-                setRuntimeConfig(moduleId, param.id, param.default);
+                // Special handling for boolean string from select
+                const defaultValue =
+                    param.default === 'true'
+                        ? true
+                        : param.default === 'false'
+                        ? false
+                        : param.default;
+                setRuntimeConfig(moduleId, param.id, defaultValue);
             }
         }
     }
@@ -278,7 +285,11 @@ export function initWorkbenchEvents() {
         } else if (target.matches('.runtime-control select')) {
             const moduleId = target.dataset.moduleId;
             const paramId = target.dataset.paramId;
-            const value = target.value;
+            let value = target.value;
+            // Convert boolean strings back to booleans
+            if (value === 'true') value = true;
+            if (value === 'false') value = false;
+
             setRuntimeConfig(moduleId, paramId, value);
             saveAppState();
         }
@@ -311,9 +322,6 @@ export function initWorkbenchEvents() {
     document.body.addEventListener('mousemove', handleMouseMove);
     document.body.addEventListener('mouseup', handleMouseUp);
     document.body.addEventListener('mouseleave', handleMouseUp);
-
-    handleImageDropAreaEvents();
-    handleAudioDropAreaEvents();
 }
 
 export function initGlobalEvents() {
@@ -322,33 +330,14 @@ export function initGlobalEvents() {
 }
 
 function clearInputs() {
-    // Image
     clearInputDataURLs();
-    const grid = dom.imageInputGrid();
-    if (grid) grid.innerHTML = '';
-    const singlePreview = dom.getImagePreview();
-    if (singlePreview) singlePreview.src = '';
-
-    // Audio
     clearInputAudioURL();
-    const audioFilename = dom.getAudioFilenameDisplay();
-    if (audioFilename) audioFilename.textContent = '';
-
-    // Reset all drop areas
-    document.querySelectorAll('[data-has-content="true"]').forEach(el => {
-        el.dataset.hasContent = 'false';
-        el.dataset.controlsVisible = 'false';
-    });
-    document.querySelectorAll('.hidden').forEach(el => {
-        if (el.id.includes('-placeholder')) el.classList.remove('hidden');
-    });
-
-    renderStatus();
+    renderStatus(); // Will clear UI based on now-empty state
 }
 
 async function loadAudioFile(file) {
     if (!file || !file.type.startsWith('audio/')) return;
-    clearInputs(); // Clear any existing inputs
+    clearInputs();
     const url = URL.createObjectURL(file);
     setInputAudioURL(url, file.name);
     renderStatus();
@@ -371,7 +360,12 @@ async function loadImageFiles(files) {
     renderStatus();
 }
 
-function handleImageDropAreaEvents() {
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+export function handleImageDropAreaEvents() {
     const dropArea = dom.getImageDropArea();
     if (!dropArea) return;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -379,7 +373,7 @@ function handleImageDropAreaEvents() {
     });
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(
-            'dragover',
+            eventName,
             () => dropArea.classList.add('drag-over'),
             false
         );
@@ -400,7 +394,7 @@ function handleImageDropAreaEvents() {
         false
     );
 }
-function handleAudioDropAreaEvents() {
+export function handleAudioDropAreaEvents() {
     const dropArea = dom.getAudioDropArea();
     if (!dropArea) return;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -408,7 +402,7 @@ function handleAudioDropAreaEvents() {
     });
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(
-            'dragover',
+            eventName,
             () => dropArea.classList.add('drag-over'),
             false
         );
@@ -428,11 +422,6 @@ function handleAudioDropAreaEvents() {
         },
         false
     );
-}
-
-function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
 }
 
 function handleMouseDown(e) {

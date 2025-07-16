@@ -1,7 +1,10 @@
 import { dom } from '../dom.js';
 import { state, setComparisonMode, setOutputData } from '../state.js';
 import { getContainSize } from '../utils.js';
-import { initWorkbenchEvents } from '../_events/workbenchEvents.js';
+import {
+    handleImageDropAreaEvents,
+    handleAudioDropAreaEvents,
+} from '../_events/workbenchEvents.js';
 
 let inputImageForCompare = null;
 let imageBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -50,8 +53,9 @@ export async function renderWorkbench() {
             outputContainer.innerHTML = '';
         }
 
-        // Re-initialize events for new DOM content
-        initWorkbenchEvents();
+        // --- FIX: Initialize event handlers for the newly injected dynamic content ---
+        handleImageDropAreaEvents();
+        handleAudioDropAreaEvents();
 
         _renderRuntimeControls(activeModule);
 
@@ -127,18 +131,24 @@ function _renderRuntimeControls(activeModule) {
         }
 
         if (param.type === 'checkbox') {
+            const valueAsBoolean =
+                currentValue === 'true' || currentValue === true;
             controlHtml = `<input type="checkbox" ${baseAttributes} ${
-                currentValue ? 'checked' : ''
+                valueAsBoolean ? 'checked' : ''
             }>`;
             return `<div class="runtime-control checkbox-control"><label for="param-${param.id}">${param.name}</label>${controlHtml}</div>`;
         }
 
         if (param.type === 'select') {
+            // For select, we must compare values as strings, since that's how they come from the DOM.
+            const valueAsString = String(currentValue);
             const optionsHtml = param.options
                 .map(
                     opt =>
                         `<option value="${opt.value}" ${
-                            currentValue === opt.value ? 'selected' : ''
+                            valueAsString === String(opt.value)
+                                ? 'selected'
+                                : ''
                         }>${opt.label}</option>`
                 )
                 .join('');
