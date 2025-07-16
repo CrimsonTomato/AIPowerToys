@@ -1,5 +1,4 @@
 import { env, pipeline } from '@huggingface/transformers';
-import { taskHandlers } from './task-handlers.js';
 
 // --- THE CORRECT, PROVEN CONFIGURATION ---
 env.allowRemoteModels = false;
@@ -117,9 +116,29 @@ self.onmessage = async e => {
                 });
             }
 
-            // --- TRUE BATCHING ---
-            // `data` is now an array of data URLs (or a single one in an array)
-            // The pipeline function handles both single and array inputs.
+            // --- DYNAMIC TASK HANDLER IMPORT ---
+            let taskHandlerModule;
+            try {
+                // MODIFIED: Use a string literal template that Vite can analyze.
+                // It now knows to look for files in './tasks/' that match the pattern '*.task.js'.
+                taskHandlerModule = await import(`./tasks/${task}.task.js`);
+            } catch (error) {
+                console.error(
+                    `Dynamic import for task "${task}" failed:`,
+                    error
+                );
+                throw new Error(
+                    `Could not load task module for task: "${task}". Make sure a file named "${task}.task.js" exists in the "workers/tasks/" directory.`
+                );
+            }
+
+            if (!taskHandlerModule.postprocess) {
+                throw new Error(
+                    `Task module for "${task}" does not export a "postprocess" function.`
+                );
+            }
+
+            // --- RUN INFERENCE ---
             const statusMessage =
                 Array.isArray(data) && data.length > 1
                     ? `Running inference on ${data.length} images...`
@@ -132,22 +151,23 @@ self.onmessage = async e => {
                 type: 'status',
                 data: 'Post-processing results...',
             });
-            const postProcess = taskHandlers[task];
-            if (!postProcess) {
-                throw new Error(
-                    `No post-processing handler found for task: ${task}`
-                );
-            }
 
-            // The pipeline returns an array of results for a batch, or a single result for a single input.
-            // We ensure it's always an array for consistent processing.
-            const outputArray = Array.isArray(output) ? output : [output];
+            // --- DATA NORMALIZATION FOR POST-PROCESSING ---
+            // If the original input `data` was a single item, the pipeline output
+            // is a single result. We wrap it in an array to create a "batch of one"
+            // so that the following logic can treat everything as a batch.
+            const outputBatch = Array.isArray(data) ? output : [output];
             const inputArray = Array.isArray(data) ? data : [data];
 
-            const processingPromises = outputArray.map(
-                (singleOutput, index) => {
+            const processingPromises = outputBatch.map(
+                (singleImageResult, index) => {
                     const inputUrl = inputArray[index];
-                    return postProcess(singleOutput, inputUrl, pipelineOptions);
+                    // Call the dynamically imported postprocess function, passing it the result for one image.
+                    return taskHandlerModule.postprocess(
+                        singleImageResult,
+                        inputUrl,
+                        pipelineOptions
+                    );
                 }
             );
 
@@ -162,7 +182,7 @@ self.onmessage = async e => {
         } catch (error) {
             console.error(error);
             self.postMessage({
-                type: 'error',
+                type: 'status',
                 data: `Error: ${error.message}`,
             });
             // Reset pipeline on error
