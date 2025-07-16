@@ -13,6 +13,7 @@
     "vite-plugin-html": "^3.2.2"
   },
   "dependencies": {
+    "@fontsource/material-icons": "^5.2.5",
     "@huggingface/transformers": "^3.6.3",
     "idb-keyval": "^6.2.2",
     "jszip": "^3.10.1",

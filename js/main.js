@@ -1,10 +1,10 @@
+import '@fontsource/material-icons';
 import { setModules, setGpuSupported, setUseGpu } from './state.js';
 import {
     renderApp,
     renderFolderConnectionStatus,
     renderGpuStatus,
 } from './ui/main.js';
-import { renderModelsList } from './ui/models.js';
 import { renderWorkbench } from './ui/workbench.js';
 import { initWorker } from './_controllers/modelController.js';
 import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
