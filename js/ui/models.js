@@ -1,10 +1,7 @@
-// models.js
 import Sortable from 'sortablejs';
 import { dom } from '../dom.js';
-import { state, setModelOrder, setStarredModels } from '../state.js';
-// --- NEW IMPORT ---
+import { state, setModelOrder } from '../state.js';
 import { saveAppState } from '../_controllers/fileSystemController.js';
-// --- END NEW IMPORT ---
 
 let modelSearchTerm = '';
 let sortableInstance = null;

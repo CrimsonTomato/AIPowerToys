@@ -13,11 +13,10 @@ import {
 } from '../state.js';
 import { renderModelsList } from '../ui/models.js';
 import {
-    renderFolderConnectionStatus,
     applyTheme,
-    applySidebarWidth,
-    renderGpuStatus,
-} from '../ui/main.js';
+} from '../ui/main_component.js';
+import {
+    applySidebarWidth, renderFolderConnectionStatus} from '../ui/sidebar.js';
 
 const DIRECTORY_HANDLE_KEY = 'modelsDirectoryHandle';
 const APP_STATE_KEY = 'aiPowerToysState';

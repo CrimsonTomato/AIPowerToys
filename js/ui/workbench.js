@@ -1,5 +1,5 @@
 import { dom } from '../dom.js';
-import { state, setComparisonMode, setOutputData } from '../state.js';
+import { state, setComparisonMode } from '../state.js';
 import { getContainSize } from '../utils.js';
 import {
     handleImageDropAreaEvents,
@@ -53,7 +53,6 @@ export async function renderWorkbench() {
             outputContainer.innerHTML = '';
         }
 
-        // --- FIX: Initialize event handlers for the newly injected dynamic content ---
         handleImageDropAreaEvents();
         handleAudioDropAreaEvents();
 
@@ -140,7 +139,6 @@ function _renderRuntimeControls(activeModule) {
         }
 
         if (param.type === 'select') {
-            // For select, we must compare values as strings, since that's how they come from the DOM.
             const valueAsString = String(currentValue);
             const optionsHtml = param.options
                 .map(
@@ -173,56 +171,6 @@ function _renderRuntimeControls(activeModule) {
     container.innerHTML = html;
 }
 
-/**
- * Renders the output grid for batch processing results.
- * @param {ImageData[]} results - An array of ImageData objects to render.
- */
-export function renderOutputGrid(results) {
-    const grid = dom.outputImageGrid();
-    if (!grid) return;
-
-    grid.innerHTML = ''; // Clear previous results
-
-    if (!results || results.length === 0) {
-        return;
-    }
-
-    results.forEach(imageData => {
-        if (!imageData) return;
-
-        const item = document.createElement('div');
-        item.className = 'grid-image-item';
-
-        const canvas = document.createElement('canvas');
-        canvas.width = imageData.width;
-        canvas.height = imageData.height;
-        canvas.getContext('2d').putImageData(imageData, 0, 0);
-
-        const overlay = document.createElement('div');
-        overlay.className = 'grid-item-overlay';
-        overlay.innerHTML = `<span class="material-icons">zoom_in</span>`;
-
-        item.appendChild(canvas);
-        item.appendChild(overlay);
-        grid.appendChild(item);
-    });
-}
-
-export function clearOutputGrid() {
-    const grid = dom.outputImageGrid();
-    if (grid) grid.innerHTML = '';
-}
-
-function _drawPlainOutputToCanvas() {
-    if (!state.outputData || Array.isArray(state.outputData)) return;
-    const canvas = dom.getOutputCanvas();
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    canvas.width = state.outputData.width;
-    canvas.height = state.outputData.height;
-    ctx.putImageData(state.outputData, 0, 0);
-}
-
 async function _getLoadedInputImage() {
     const inputDataURLs = state.inputDataURLs;
     if (inputDataURLs.length === 0) return null;
@@ -242,7 +190,7 @@ async function _getLoadedInputImage() {
 
 export async function renderComparisonView() {
     const outputArea = dom.outputArea();
-    if (!outputArea) return; // Exit if we are in text-output mode
+    if (!outputArea) return;
 
     const slider = dom.imageCompareSlider();
     const slideBtn = dom.compareSlideBtn();
@@ -294,7 +242,10 @@ export async function renderComparisonView() {
     } else {
         slider.classList.add('hidden');
         if (canCompare && state.outputData.width) {
-            _drawPlainOutputToCanvas();
+            const ctx = canvas.getContext('2d');
+            canvas.width = state.outputData.width;
+            canvas.height = state.outputData.height;
+            ctx.putImageData(state.outputData, 0, 0);
         }
     }
 }

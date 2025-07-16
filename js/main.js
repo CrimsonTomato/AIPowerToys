@@ -1,10 +1,8 @@
 import '@fontsource/material-icons';
 import { setModules, setGpuSupported, setUseGpu } from './state.js';
-import {
-    renderApp,
-    renderFolderConnectionStatus,
-    renderGpuStatus,
-} from './ui/main.js';
+import { renderApp } from './ui/main_component.js';
+import { renderFolderConnectionStatus } from './ui/sidebar.js';
+import { renderGpuStatus } from './ui/components/gpuStatus.js';
 import { renderWorkbench } from './ui/workbench.js';
 import { initWorker } from './_controllers/modelController.js';
 import { loadDirectoryHandle } from './_controllers/fileSystemController.js';
@@ -13,10 +11,6 @@ import {
     initGlobalEvents,
 } from './_events/workbenchEvents.js';
 
-/**
- * Fetches all official module manifests defined in the central config file.
- * @returns {Promise<Array<object>>} A promise that resolves to an array of module manifest objects.
- */
 async function loadAllModules() {
     try {
         const configResponse = await fetch('/modules.config.json');
@@ -40,31 +34,26 @@ async function loadAllModules() {
 }
 
 async function main() {
-    // Check for GPU support first and set the default state.
     const isGpuSupported = 'gpu' in navigator;
     setGpuSupported(isGpuSupported);
-    setUseGpu(isGpuSupported); // Default to ON if supported
+    setUseGpu(isGpuSupported);
 
     const allModules = await loadAllModules();
     setModules(allModules);
 
-    await renderApp(); // Renders the main shell and models list
-
-    // This needs to be called after renderApp() so the elements exist.
+    await renderApp();
     renderGpuStatus();
 
-    // This loads saved state (like theme/sidebar/useGpu) and re-checks models
     await loadDirectoryHandle();
     renderFolderConnectionStatus();
 
-    // Re-render GPU status in case the loaded state changed the preference
     renderGpuStatus();
 
     initWorker();
-    initGlobalEvents(); // Handles theme, sidebar width
-    initWorkbenchEvents(); // Handles all click/change/drag events via delegation
+    initGlobalEvents();
+    initWorkbenchEvents();
 
-    await renderWorkbench(); // Renders the initial (empty) workbench
+    await renderWorkbench();
 }
 
 main();
