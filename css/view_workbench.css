@@ -2,9 +2,9 @@
   This file aggregates all workbench-related styles.
 */
 
-@import url('../css/components/_model-card.css');
-@import url('../css/components/_workbench-layout.css');
-@import url('../css/components/_workbench-image-io.css');
-@import url('../css/components/_workbench-audio-io.css');
-@import url('../css/components/_workbench-text-io.css');
-@import url('../css/components/_runtime-controls.css');
+@import url('../css/components/model-card.css');
+@import url('../css/workbench/layout.css');
+@import url('../css/workbench/image-io.css');
+@import url('../css/workbench/audio-io.css');
+@import url('../css/workbench/text-io.css');
+@import url('../css/workbench/runtime-controls.css');

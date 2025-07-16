@@ -1,0 +1,25 @@
+#models-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: 16px;
+}
+.models-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.models-section-header h4 {
+    margin: 0;
+}
+#model-search-input {
+    flex-grow: 1;
+    margin-right: 8px;
+}
+#models-section #models-list {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding-right: 8px;
+}

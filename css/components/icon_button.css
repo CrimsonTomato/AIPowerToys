@@ -1,0 +1,67 @@
+/* --- Icon Buttons --- */
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.icon-btn:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --- Official Material Icons styling --- */
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px; /* Preferred icon size */
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+
+    /* Support for all WebKit browsers. */
+    -webkit-font-smoothing: antialiased;
+    /* Support for Safari and Chrome. */
+    text-rendering: optimizeLegibility;
+
+    /* Support for Firefox. */
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Support for IE. */
+    font-feature-settings: 'liga';
+}
+
+.icon-btn.btn-success-feedback {
+    animation: success-flash 1.5s ease-out;
+}
+.icon-btn.btn-failure-feedback {
+    animation: failure-flash 1.5s ease-out;
+}
+.output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary-translucent);
+    color: var(--accent-primary);
+}
+html.dark-mode .output-view-controls .icon-btn.active {
+    background-color: var(--accent-primary);
+    color: var(--bg-primary);
+}
+.input-controls .icon-btn:hover:not(:disabled) {
+    background-color: var(--status-failure-bg);
+    color: var(--text-primary);
+}

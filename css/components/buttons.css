@@ -1,0 +1,38 @@
+/* --- Buttons --- */
+.btn,
+.form-input,
+.select-input {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+    background-color: var(--bg-secondary);
+    border-color: var(--text-secondary);
+}
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn.btn-secondary {
+    background-color: var(--bg-tertiary);
+}
+.btn.btn-secondary:hover:not(:disabled) {
+    background-color: var(--bg-secondary);
+}
+
+.btn.btn-primary {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary-text);
+    font-weight: 600;
+}
+.btn.btn-primary:hover:not(:disabled) {
+    background-color: var(--accent-primary-hover);
+    border-color: var(--accent-primary-hover);
+}

@@ -1,0 +1,13 @@
+.gpu-status-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-right: 10px;
+}
+.gpu-status-area .btn {
+    flex-shrink: 0;
+}
+.gpu-status-area p {
+    margin: 0;
+    flex-grow: 1;
+}
