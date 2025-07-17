@@ -1,4 +1,10 @@
-import { env, pipeline } from '@huggingface/transformers';
+import {
+    env,
+    pipeline,
+    RawImage,
+    SamModel,
+    AutoProcessor,
+} from '@huggingface/transformers';
 
 // --- THE CORRECT, PROVEN CONFIGURATION ---
 env.allowRemoteModels = false;
@@ -8,7 +14,7 @@ env.allowLocalModels = true;
 // It will be populated by the main thread.
 const fileCache = new Map();
 
-let currentPipeline = null;
+let currentPipeline = null; // Will now also hold custom model/processor for SAM
 let currentModelId = null;
 let currentPipelineOptions = null;
 
@@ -65,14 +71,32 @@ self.onmessage = async e => {
                         pipelineOptions?.device || 'wasm'
                     })...`,
                 });
-                if (currentPipeline) {
+                if (
+                    currentPipeline &&
+                    typeof currentPipeline.dispose === 'function'
+                ) {
+                    // Ensure dispose is a function
                     await currentPipeline.dispose();
                 }
-                currentPipeline = await pipeline(
-                    task,
-                    modelId,
-                    pipelineOptions
-                );
+
+                // NEW: Handle SAM task with specific model/processor loading
+                if (task === 'image-segmentation-with-prompt') {
+                    const model = await SamModel.from_pretrained(
+                        modelId,
+                        pipelineOptions
+                    );
+                    const processor = await AutoProcessor.from_pretrained(
+                        modelId
+                    );
+                    currentPipeline = { model, processor, isCustom: true }; // Mark as custom for specific handling
+                } else {
+                    currentPipeline = await pipeline(
+                        task,
+                        modelId,
+                        pipelineOptions
+                    );
+                }
+
                 currentModelId = modelId;
                 currentPipelineOptions = pipelineOptions;
 
@@ -109,21 +133,66 @@ self.onmessage = async e => {
                     : 'Running inference...';
             self.postMessage({ type: 'status', data: statusMessage });
 
-            const output = await currentPipeline(data, pipelineOptions);
+            let output;
+            let rawOutputForPostprocessing = null; // To pass model's direct output (e.g., scores for SAM)
+
+            // NEW: Custom handling for SAM inference
+            if (
+                currentPipeline.isCustom &&
+                task === 'image-segmentation-with-prompt'
+            ) {
+                const image = await RawImage.read(data);
+                const {
+                    image_width,
+                    image_height,
+                    input_points,
+                    input_labels,
+                } = pipelineOptions;
+
+                // Scale points from normalized (0-1) to original image dimensions
+                const scaledPoints = input_points.map(p => [
+                    p[0] * image_width,
+                    p[1] * image_height,
+                ]);
+
+                const inputs = await currentPipeline.processor(image, {
+                    input_points: [scaledPoints],
+                    input_labels: [input_labels], // Labels are already a flat array of 0s/1s
+                });
+
+                rawOutputForPostprocessing = await currentPipeline.model(
+                    inputs
+                );
+
+                // Post-process masks using the processor
+                output = await currentPipeline.processor.post_process_masks(
+                    rawOutputForPostprocessing.pred_masks,
+                    inputs.original_sizes,
+                    inputs.reshaped_input_sizes
+                );
+            } else {
+                output = await currentPipeline(data, pipelineOptions);
+            }
 
             self.postMessage({
                 type: 'status',
                 data: 'Post-processing results...',
             });
 
+            // Pass raw output to postprocess function if it exists
+            if (rawOutputForPostprocessing) {
+                pipelineOptions.raw = rawOutputForPostprocessing;
+            }
+
             const outputBatch = Array.isArray(data) ? output : [output];
             const inputArray = Array.isArray(data) ? data : [data];
 
             const processingPromises = outputBatch.map(
-                (singleImageResult, index) => {
+                (singleResult, index) => {
+                    // singleResult could be a RawImage, a Tensor, or other model output
                     const inputUrl = inputArray[index];
                     return taskHandlerModule.postprocess(
-                        singleImageResult,
+                        singleResult,
                         inputUrl,
                         pipelineOptions
                     );
@@ -136,7 +205,20 @@ self.onmessage = async e => {
                 ? renderables
                 : renderables[0];
 
-            self.postMessage({ type: 'result', data: finalData });
+            // NEW: For SAM, pass both the main data (cutout) and the rawMaskOnly data
+            if (
+                task === 'image-segmentation-with-prompt' &&
+                finalData &&
+                finalData.imageData
+            ) {
+                self.postMessage({
+                    type: 'result',
+                    data: finalData.imageData,
+                    rawMaskOnly: finalData.rawMaskOnly,
+                });
+            } else {
+                self.postMessage({ type: 'result', data: finalData });
+            }
         } catch (error) {
             console.error(error);
             self.postMessage({

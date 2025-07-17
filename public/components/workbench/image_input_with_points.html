@@ -1,0 +1,37 @@
+<div id="input-container">
+    <!-- The main interactive area for dropping files and clicking for points -->
+    <div class="image-preview-container point-and-click-area" id="image-drop-area" data-controls-visible="false">
+
+        <!-- WRAPPER FOR MAIN CONTENT -->
+        <div class="aspect-ratio-content-wrapper">
+            <!-- The placeholder when no image is loaded -->
+            <span id="image-input-placeholder">
+                <span class="material-icons">add_photo_alternate</span>
+                <span>Choose or drag an image here</span>
+            </span>
+
+            <!-- Single image preview -->
+            <img id="image-preview" src="" alt="Image preview" class="hidden" />
+
+            <!-- Container for prompt points -->
+            <div id="prompt-points-container" class="hidden"></div>
+        </div>
+
+        <!-- The file input is now completely separate and hidden -->
+        <input type="file" id="image-picker" accept="image/*" class="hidden" />
+
+        <!-- Controls for actions on input area (bottom-right) -->
+        <div class="input-controls">
+            <!-- NEW: Dedicated button to trigger the file picker -->
+            <button id="upload-image-btn" class="icon-btn" title="Upload Image">
+                <span class="material-icons">cloud_upload</span>
+            </button>
+            <button id="clear-points-btn" class="icon-btn" disabled title="Clear Prompt Points">
+                <span class="material-icons">backspace</span>
+            </button>
+            <button id="clear-input-btn" class="icon-btn" disabled title="Clear Input Image">
+                <span class="material-icons">delete_sweep</span>
+            </button>
+        </div>
+    </div>
+</div>

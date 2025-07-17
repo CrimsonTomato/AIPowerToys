@@ -46,7 +46,11 @@ export const dom = {
         document.getElementById('audio-preview-player'),
     inputControls: () =>
         document.querySelector('#image-drop-area .input-controls'),
+    uploadImageBtn: () => document.getElementById('upload-image-btn'),
     clearInputBtn: () => document.getElementById('clear-input-btn'),
+    clearPointsBtn: () => document.getElementById('clear-points-btn'),
+    promptPointsContainer: () =>
+        document.getElementById('prompt-points-container'),
     viewInputBtn: () => document.getElementById('view-input-btn'),
 
     // --- Output Area ---
@@ -64,6 +68,9 @@ export const dom = {
     compareHoldBtn: () => document.getElementById('compare-hold-btn'),
     outputImageGrid: () => document.getElementById('output-image-grid'),
     imageCompareSlider: () => document.getElementById('image-compare-slider'),
+    showCutoutBtn: () => document.getElementById('show-cutout-btn'), // NEW
+    showOverlayBtn: () => document.getElementById('show-overlay-btn'), // NEW
+    showMaskOnlyBtn: () => document.getElementById('show-mask-only-btn'), // NEW
 
     // --- Modal ---
     imageModal: () => document.getElementById('image-modal'),

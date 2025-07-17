@@ -4,6 +4,7 @@ import {
     setOutputData,
     setInferenceStartTime,
     setInferenceDuration,
+    // Removed: setRuntimeConfig, // No longer need to store rawMaskOnly
 } from '../state.js';
 import { dom } from '../dom.js';
 import { prepareModelFiles } from './modelFileManager.js';
@@ -104,6 +105,8 @@ function _getPipelineOptions(activeModule, modelStatus) {
 }
 
 async function _executeSingleInference(url, activeModule, modelStatus) {
+    // This function is for iterative processing, which SAM does not support in its current UI iteration.
+    // So this path should ideally not be taken for SAM.
     return new Promise(async (resolve, reject) => {
         try {
             resolveSingleInferencePromise = resolve;
@@ -143,7 +146,7 @@ async function decodeAudio(url) {
 
 async function _runBatchInference(activeModule, modelStatus) {
     try {
-        const { selectedVariant, finalPipelineOptions } = _getPipelineOptions(
+        let { selectedVariant, finalPipelineOptions } = _getPipelineOptions(
             activeModule,
             modelStatus
         );
@@ -154,14 +157,57 @@ async function _runBatchInference(activeModule, modelStatus) {
         );
 
         let dataToProcess;
-        if (state.inputAudioURL) {
+        if (activeModule.task === 'image-segmentation-with-prompt') {
+            if (state.inputDataURLs.length === 0)
+                throw new Error('No input image for segmentation.');
+            if (state.inputDataURLs.length > 1)
+                throw new Error(
+                    'Image segmentation with prompts only supports single image input.'
+                );
+            if (state.inputPoints.length === 0)
+                throw new Error(
+                    'Please add at least one prompt point to the image.'
+                );
+
+            const imageUrl = state.inputDataURLs[0];
+
+            // For SAM, the worker needs the *original image dimensions* and the points.
+            // It will handle reading the image and calculating embeddings.
+            const image = new Image(); // Temporarily load image to get dimensions for the worker
+            image.src = imageUrl;
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = reject;
+            });
+
+            finalPipelineOptions.image_width = image.width;
+            finalPipelineOptions.image_height = image.height;
+            finalPipelineOptions.input_points = state.inputPoints.map(
+                p => p.point
+            ); // Pass points
+            finalPipelineOptions.input_labels = state.inputPoints.map(
+                p => p.label
+            ); // Pass labels
+
+            dataToProcess = imageUrl; // Send the image URL to worker
+        } else if (state.inputAudioURL) {
             dom.statusText().textContent = 'Status: Decoding audio file...';
             dataToProcess = await decodeAudio(state.inputAudioURL.url);
         } else {
-            dataToProcess =
-                state.inputDataURLs.length === 1
-                    ? state.inputDataURLs[0]
-                    : state.inputDataURLs;
+            // For other image tasks (image-to-image, depth-estimation),
+            // ensure single image if not batch, or throw error if multiple for single-image task
+            if (state.inputDataURLs.length === 0)
+                throw new Error('No input data provided.');
+
+            if (state.processingMode === 'batch') {
+                dataToProcess =
+                    state.inputDataURLs.length === 1
+                        ? state.inputDataURLs[0]
+                        : state.inputDataURLs;
+            } else {
+                // iterative mode, send only first for now
+                dataToProcess = state.inputDataURLs[0];
+            }
         }
 
         inferenceWorker.postMessage({

@@ -1,0 +1,13 @@
+{
+    "id": "Xenova/slimsam-77-uniform",
+    "name": "Segment from Prompts (SlimSAM)",
+    "description": "Generate segmentation masks from prompt points. Only single image input is supported. Left-click for a positive point, right-click for a negative point.",
+    "task": "image-segmentation-with-prompt",
+    "default_filename": "segmented-image.png",
+    "config_files": ["config.json", "preprocessor_config.json"],
+    "ui_components": {
+        "workbench_input": "/components/workbench/image_input_with_points.html",
+        "workbench_output": "/components/workbench/image_output.html"
+    },
+    "configurable_params": []
+}

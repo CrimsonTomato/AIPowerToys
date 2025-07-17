@@ -20,10 +20,11 @@ export let state = {
     // Worker & Processing State
     isProcessing: false,
     isRenderingWorkbench: false,
-    outputData: null,
+    outputData: null, // Now directly holds ImageData or string, not {imageData, rawMaskOnly}
     inferenceStartTime: null,
     inputDataURLs: [], // For images
     inputAudioURL: null, // For audio
+    inputPoints: [], // For segmentation prompts: [{point: [x,y], label: 0|1}]
     inferenceDuration: null,
     downloadProgress: {
         status: 'idle',
@@ -90,6 +91,8 @@ export function setOutputData(data) {
     if (Array.isArray(data) && data.length === 0) {
         state.outputData = null;
     } else {
+        // For SAM task, the worker now directly returns the final ImageData for the cutout.
+        // So no need to drill into `data.imageData`.
         state.outputData = data;
     }
     eventBus.emit('outputDataChanged');
@@ -144,6 +147,13 @@ export function setCollapsedModels(modelsSet) {
     state.collapsedModels = modelsSet;
 }
 export function setInputDataURLs(urls) {
+    // If a SAM task is active, ensure only one image can be loaded.
+    const activeModule = state.modules.find(m => m.id === state.activeModuleId);
+    const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
+    if (isSamTask && urls.length > 1) {
+        alert('Only a single image can be processed for this task.');
+        return; // Prevent setting multiple URLs
+    }
     state.inputDataURLs = urls;
     eventBus.emit('inputDataChanged');
 }
@@ -165,4 +175,19 @@ export function setProcessingMode(mode) {
 }
 export function setRenderingWorkbench(isRendering) {
     state.isRenderingWorkbench = isRendering;
+}
+export function addInputPoint(point) {
+    state.inputPoints.push(point);
+    eventBus.emit('inputPointsChanged');
+}
+export function clearInputPoints() {
+    if (state.inputPoints.length === 0) return;
+    state.inputPoints = [];
+    eventBus.emit('inputPointsChanged');
+}
+export function removeInputPoint(index) {
+    if (index >= 0 && index < state.inputPoints.length) {
+        state.inputPoints.splice(index, 1);
+        eventBus.emit('inputPointsChanged');
+    }
 }

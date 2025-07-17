@@ -8,6 +8,8 @@ import {
     setUseGpu,
     setSidebarWidth,
     setRuntimeConfig,
+    addInputPoint,
+    clearInputPoints,
 } from '../state.js';
 import { runInference } from '../_controllers/modelController.js';
 import { downloadModel } from '../_controllers/modelDownloader.js';
@@ -21,6 +23,7 @@ import {
 } from '../_controllers/fileSystemController.js';
 import { openImageModal, closeImageModal } from '../ui/components/modal.js';
 import { clearInputs } from './inputHandlers.js';
+import { dom } from '../dom.js';
 
 // --- Individual Click Handler Functions (Now free of direct UI calls) ---
 
@@ -53,6 +56,7 @@ function activateModule(moduleId) {
     const module = state.modules.find(m => m.id === moduleId);
     if (module && module.configurable_params) {
         for (const param of module.configurable_params) {
+            // Only set default if param doesn't exist for this module
             if (state.runtimeConfigs[moduleId]?.[param.id] === undefined) {
                 const defaultValue =
                     param.default === 'true'
@@ -149,10 +153,43 @@ function handleResetSidebar() {
     saveAppState();
 }
 
+function handleClearPoints() {
+    clearInputPoints();
+}
+
+function handleUploadImage() {
+    dom.getImagePicker()?.click();
+}
+
+function handlePointAndClick(e) {
+    const area = e.target.closest('.point-and-click-area');
+    // Add guards to prevent action when not ready or already processing
+    if (!area || state.inputDataURLs.length === 0 || state.isProcessing) return;
+
+    // Prevent context menu on right click
+    e.preventDefault();
+
+    const bb = area.getBoundingClientRect();
+    const x = (e.clientX - bb.left) / bb.width;
+    const y = (e.clientY - bb.top) / bb.height;
+
+    // Clamp values between 0 and 1
+    const point = [Math.max(0, Math.min(x, 1)), Math.max(0, Math.min(y, 1))];
+
+    // Left-click is 1 (positive), Right-click is 0 (negative)
+    const label = e.button === 0 ? 1 : 0;
+
+    addInputPoint({ point, label });
+    // Automatically trigger inference after adding a point
+    setTimeout(runInference, 50);
+}
+
 const clickHandlers = {
     '#connect-folder-btn': handleConnectFolder,
     '#run-inference-btn': handleRunInference,
+    '#upload-image-btn': handleUploadImage,
     '#clear-input-btn': clearInputs,
+    '#clear-points-btn': handleClearPoints,
     '#copy-btn': handleCopyOutput,
     '#save-btn': handleSaveOutput,
     '#view-input-btn': handleViewInput,
@@ -171,15 +208,41 @@ const clickHandlers = {
 };
 
 export function initClickListeners() {
+    // This listener prevents the right-click menu from showing up on the image.
+    document.body.addEventListener('contextmenu', e => {
+        if (e.target.closest('.point-and-click-area')) {
+            e.preventDefault();
+        }
+    });
+
+    // This listener handles adding points (both left and right clicks).
+    document.body.addEventListener('mousedown', e => {
+        const pointArea = e.target.closest('.point-and-click-area');
+        if (pointArea) {
+            // Do not register a point if a button or an existing point inside the area was clicked.
+            if (e.target.closest('button, .prompt-point')) return;
+            handlePointAndClick(e);
+        }
+    });
+
+    // This listener handles all normal button clicks.
     document.body.addEventListener('click', e => {
-        // Modal-specific close conditions
+        // We check for the closest matching selector for delegation.
+        const matchingSelector = Object.keys(clickHandlers).find(selector => e.target.closest(selector));
+
+        if (matchingSelector) {
+            clickHandlers[matchingSelector](e);
+            return;
+        }
+
+        // Modal-specific close condition (clicking overlay).
         const modal = e.target.closest('#image-modal');
         if (modal && e.target === modal) {
             closeImageModal();
             return;
         }
 
-        // Grid item clicks for modal zoom
+        // Grid item clicks for modal zoom.
         const gridItem = e.target.closest('.grid-image-item');
         if (gridItem) {
             e.preventDefault();
@@ -190,15 +253,6 @@ export function initClickListeners() {
             } else if (gridItem.closest('#output-image-grid')) {
                 const canvas = gridItem.querySelector('canvas');
                 if (canvas) openImageModal('canvas', canvas);
-            }
-            return;
-        }
-
-        // Delegated clicks
-        for (const [selector, handler] of Object.entries(clickHandlers)) {
-            if (e.target.closest(selector)) {
-                handler(e); // Note: Removed await as handlers are sync now
-                return;
             }
         }
     });

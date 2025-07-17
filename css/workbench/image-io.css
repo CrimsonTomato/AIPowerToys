@@ -38,6 +38,7 @@
 }
 
 .image-input-label {
+    /* Keep this for generic image inputs */
     cursor: pointer;
     color: var(--text-secondary);
     font-weight: 500;
@@ -49,6 +50,25 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+/* Styles for the placeholder when no image is loaded for SAM tasks */
+#image-drop-area:not([data-has-content='true']) #image-input-placeholder {
+    display: flex; /* Ensure it's a flex container */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+#image-drop-area:not([data-has-content='true'])
+    #image-input-placeholder
+    .material-icons {
+    font-size: 3rem; /* Larger icon */
 }
 
 #image-preview,
@@ -129,5 +149,29 @@
     background-color: var(--bg-primary);
     border: 2px solid var(--accent-primary);
     border-radius: 6px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* For image segmentation with prompts */
+#prompt-points-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none; /* Clicks should pass through to the underlying image area */
+}
+
+.prompt-point {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px white, 0 0 3px 1px rgba(0, 0, 0, 0.5);
+    cursor: pointer; /* Make them clickable for removal */
+    pointer-events: auto; /* Allow clicks on points themselves */
+}
+.prompt-point.positive {
+    background-color: var(--status-found-color); /* Green */
+}
+.prompt-point.negative {
+    background-color: var(--status-missing-color); /* Red */
 }

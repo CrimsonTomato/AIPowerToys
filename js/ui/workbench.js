@@ -1,5 +1,4 @@
 import { dom } from '../dom.js';
-// --- MODIFIED: Import the new state setter ---
 import { state, setComparisonMode, setRenderingWorkbench } from '../state.js';
 import { getContainSize } from '../utils.js';
 import {
@@ -23,14 +22,12 @@ const comparisonResizeObserver = new ResizeObserver(() => {
 });
 
 export async function renderWorkbench() {
-    // --- NEW: Set the rendering flag at the very beginning ---
     setRenderingWorkbench(true);
 
     const workbenchArea = dom.workbenchArea();
     const inputContainer = dom.workbenchInputArea();
     const outputContainer = dom.workbenchOutputArea();
     if (!workbenchArea || !inputContainer || !outputContainer) {
-        // --- NEW: Ensure flag is cleared even on early exit ---
         setRenderingWorkbench(false);
         return;
     }
@@ -93,10 +90,9 @@ export async function renderWorkbench() {
         comparisonResizeObserver.observe(newOutputArea);
     }
 
-    setComparisonMode('none');
-    await renderComparisonView();
+    setComparisonMode('none'); // Reset comparison mode when workbench changes
+    await renderComparisonView(); // Re-render comparison view as necessary
 
-    // --- NEW: Clear the flag *before* the final status render ---
     setRenderingWorkbench(false);
     renderStatus();
 }
@@ -106,15 +102,21 @@ function _renderRuntimeControls(activeModule) {
     if (!container) return;
 
     const isIterative = state.processingMode === 'iterative';
-    const globalControlsHtml = `
-        <div class="runtime-control checkbox-control">
-            <label for="param-processing-mode">Iterative Processing (One-by-one)</label>
-            <input type="checkbox" id="param-processing-mode" data-param-id="processing-mode" ${
-                isIterative ? 'checked' : ''
-            }>
-        </div>
-        <hr class="sidebar-section-divider">
-    `;
+    const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
+
+    // Global Processing Mode Control (only if not SAM task)
+    let globalControlsHtml = '';
+    if (!isSamTask) {
+        globalControlsHtml = `
+            <div class="runtime-control checkbox-control">
+                <label for="param-processing-mode">Iterative Processing (One-by-one)</label>
+                <input type="checkbox" id="param-processing-mode" data-param-id="processing-mode" ${
+                    isIterative ? 'checked' : ''
+                }>
+            </div>
+            <hr class="sidebar-section-divider">
+        `;
+    }
 
     const params = activeModule.configurable_params;
     if (!params || !params.length) {
@@ -217,7 +219,7 @@ export async function renderComparisonView() {
 
     const isBatchMode = Array.isArray(state.outputData);
     if (isBatchMode) {
-        setComparisonMode('none');
+        setComparisonMode('none'); // Cannot compare batches
     }
 
     slideBtn.classList.toggle('active', state.comparisonMode === 'slide');
@@ -228,36 +230,61 @@ export async function renderComparisonView() {
     const canCompare =
         !isBatchMode &&
         canvas &&
-        canvas.width > 0 &&
+        canvas.width > 0 && // Ensure canvas has dimensions (logical)
         inputImage &&
         state.outputData;
 
+    // Show/hide comparison buttons based on `canCompare`
+    if (slideBtn) slideBtn.classList.toggle('hidden', !canCompare);
+    if (holdBtn) holdBtn.classList.toggle('hidden', !canCompare);
+
     if (state.comparisonMode === 'slide' && canCompare) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const outputAreaRect = outputArea.getBoundingClientRect();
-        const outputDest = getContainSize(
-            canvas.width,
-            canvas.height,
-            state.outputData.width,
-            state.outputData.height
+        const canvasRect = canvas.getBoundingClientRect(); // Visual dimensions of the canvas DOM element
+        const outputAreaRect = outputArea.getBoundingClientRect(); // Visual dimensions of the parent output-area
+
+        // Calculate the actual visual area where the image is drawn *within* the canvas element,
+        // respecting object-fit: contain. This is essential for accurate slider positioning.
+        const visualImageRenderedRect = getContainSize(
+            canvasRect.width, // Visual width of the canvas DOM element
+            canvasRect.height, // Visual height of the canvas DOM element
+            inputImage.width, // Native width of the input image
+            inputImage.height // Native height of the input image
         );
-        const scale = canvasRect.width / canvas.width;
 
         imageBounds = {
-            x: canvasRect.left - outputAreaRect.left + outputDest.x * scale,
-            y: canvasRect.top - outputAreaRect.top + outputDest.y * scale,
-            width: outputDest.width * scale,
-            height: outputDest.height * scale,
+            // Visual X position of the rendered image relative to the outputArea
+            x:
+                canvasRect.left -
+                outputAreaRect.left +
+                visualImageRenderedRect.x,
+            // Visual Y position of the rendered image relative to the outputArea
+            y: canvasRect.top - outputAreaRect.top + visualImageRenderedRect.y,
+            width: visualImageRenderedRect.width,
+            height: visualImageRenderedRect.height,
         };
 
         slider.style.top = `${imageBounds.y}px`;
         slider.style.height = `${imageBounds.height}px`;
-        slider.style.left = `${imageBounds.x + imageBounds.width / 2}px`;
+        slider.style.left = `${imageBounds.x + imageBounds.width / 2}px`; // Initial slider position at center
         slider.classList.remove('hidden');
+
+        // Pass the initial slider position (center of the visual image bounds) to redraw
         redrawCompareCanvas(imageBounds.x + imageBounds.width / 2);
+
+        canvas.classList.remove('dimmed'); // Ensure no dimming for comparison
     } else {
         slider.classList.add('hidden');
-        if (canCompare && state.outputData.width) {
+        const canvas = dom.getOutputCanvas();
+        if (canvas) {
+            canvas.classList.remove('dimmed'); // Remove dimming if comparison not active
+        }
+        // When comparison is off, re-render the output based on its standard mode.
+        // state.outputData holds the ImageData for the output.
+        if (
+            state.outputData &&
+            !Array.isArray(state.outputData) &&
+            state.outputData.width
+        ) {
             const ctx = canvas.getContext('2d');
             canvas.width = state.outputData.width;
             canvas.height = state.outputData.height;
@@ -272,75 +299,108 @@ export async function showInputOnCanvas() {
     const inputImage = await _getLoadedInputImage();
     if (!canvas || !inputImage) return;
 
-    const dest = getContainSize(
-        canvas.width,
-        canvas.height,
-        inputImage.width,
-        inputImage.height
-    );
+    canvas.classList.remove('dimmed'); // Ensure no dimming for this view
+
+    // Set canvas logical dimensions to match input image
+    canvas.width = inputImage.width;
+    canvas.height = inputImage.height;
+
+    // Drawing the input image to fill the logical canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(inputImage, dest.x, dest.y, dest.width, dest.height);
+    ctx.drawImage(inputImage, 0, 0, canvas.width, canvas.height);
 }
 
 export async function redrawCompareCanvas(splitX_visual) {
+    // splitX_visual is mouseX relative to outputAreaRect.left
     const canvas = dom.getOutputCanvas();
     const ctx = canvas.getContext('2d');
     const inputImage = await _getLoadedInputImage();
-    if (!canvas || !inputImage || !state.outputData || !state.outputData.width)
+    const outputImageData = state.outputData;
+
+    if (!canvas || !inputImage || !outputImageData || !outputImageData.width)
         return;
 
-    const canvasRect = canvas.getBoundingClientRect();
-    const outputAreaRect = dom.outputArea().getBoundingClientRect();
-    const scale = canvas.width / canvasRect.width;
-    const visualImageOffsetX = canvasRect.left - outputAreaRect.left;
-    const splitX_canvas = (splitX_visual - visualImageOffsetX) * scale;
+    // Set canvas dimensions to match the input image's native resolution.
+    // This is crucial for drawing and ensures pixel-perfect source data.
+    canvas.width = inputImage.width;
+    canvas.height = inputImage.height;
 
-    const inputDest = getContainSize(
-        canvas.width,
-        canvas.height,
-        inputImage.width,
-        inputImage.height
-    );
-    const outputDest = getContainSize(
-        canvas.width,
-        canvas.height,
-        state.outputData.width,
-        state.outputData.height
+    // Retrieve the pre-calculated imageBounds (which represents the visual size/position of the *rendered image* within the outputArea)
+    const currentImageBounds = getImageBounds();
+
+    // Calculate the mouse X position relative to the *visual left edge of the rendered image*
+    const visualXRelativeToImageDrawArea = splitX_visual - currentImageBounds.x;
+
+    // Convert this visual X position to a logical X position *within the canvas's pixel grid*.
+    // The image is drawn internally on the canvas to fill its logical dimensions (canvas.width, canvas.height).
+    // So we scale visual position (within currentImageBounds.width) to logical position (within canvas.width).
+    const splitX_logical =
+        (visualXRelativeToImageDrawArea / currentImageBounds.width) *
+        canvas.width;
+
+    // Clamp the split position to the image's logical bounds (0 to canvas.width)
+    const clamped_splitX_logical = Math.max(
+        0,
+        Math.min(splitX_logical, canvas.width)
     );
 
+    // Clear the entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = state.outputData.width;
-    tempCanvas.height = state.outputData.height;
-    tempCanvas.getContext('2d').putImageData(state.outputData, 0, 0);
-    ctx.drawImage(
-        tempCanvas,
-        outputDest.x,
-        outputDest.y,
-        outputDest.width,
-        outputDest.height
+
+    // 1. Draw the input image (left side of slider)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+        0, // Start from logical 0
+        0, // Start from logical 0
+        clamped_splitX_logical, // Width of the clipped input part
+        canvas.height // Full height of the canvas
     );
-
-    const inputClipX = splitX_canvas - inputDest.x;
-    if (inputClipX <= 0) return;
-
-    const sourceClipWidth = (inputClipX / inputDest.width) * inputImage.width;
+    ctx.clip();
     ctx.drawImage(
         inputImage,
-        0,
-        0,
-        sourceClipWidth,
-        inputImage.height,
-        inputDest.x,
-        inputDest.y,
-        inputClipX,
-        inputDest.height
+        0, // Draw from logical 0
+        0, // Draw from logical 0
+        canvas.width, // Draw full width of input image
+        canvas.height // Draw full height of input image
     );
+    ctx.restore();
+
+    // 2. Draw the output image (right side of slider)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+        clamped_splitX_logical, // Start from slider position
+        0, // Start from logical 0
+        canvas.width - clamped_splitX_logical, // Width of the clipped output part
+        canvas.height // Full height of the canvas
+    );
+    ctx.clip();
+
+    // Create a temporary canvas for the output image data
+    const tempOutputCanvas = document.createElement('canvas');
+    tempOutputCanvas.width = outputImageData.width;
+    tempOutputCanvas.height = outputImageData.height;
+    tempOutputCanvas.getContext('2d').putImageData(outputImageData, 0, 0);
+
+    // Draw the entire output image. Clipping will limit what's seen.
+    // Ensure output image is drawn to fill the same logical area as input
+    ctx.drawImage(
+        tempOutputCanvas,
+        0, // Draw from logical 0
+        0, // Draw from logical 0
+        canvas.width, // Draw full width of output (scaled to input width)
+        canvas.height // Draw full height of output (scaled to input height)
+    );
+    ctx.restore();
 }
 
 export function initWorkbenchSubscriptions() {
+    // Re-render workbench fully when active module changes
     eventBus.on('activeModuleChanged', renderWorkbench);
-    eventBus.on('processingModeChanged', renderWorkbench);
+    eventBus.on('processingModeChanged', renderWorkbench); // Re-render controls too
+
+    // Re-render comparison view when mode or output data changes
     eventBus.on('comparisonModeChanged', renderComparisonView);
     eventBus.on('outputDataChanged', renderComparisonView);
 

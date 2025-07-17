@@ -63,17 +63,45 @@ export function renderOutputState() {
             } else {
                 batchOutputGrid.classList.add('hidden');
                 singleOutputCanvas.classList.remove('hidden');
-                const imageData = state.outputData;
-                if (imageData && imageData.width && imageData.height) {
-                    singleOutputCanvas.width = imageData.width;
-                    singleOutputCanvas.height = imageData.height;
+
+                // For SAM, state.outputData is now directly the cutout ImageData.
+                // For other tasks, it's also directly ImageData.
+                const imageDataToRender = state.outputData;
+
+                if (
+                    imageDataToRender &&
+                    imageDataToRender.width &&
+                    imageDataToRender.height
+                ) {
+                    singleOutputCanvas.width = imageDataToRender.width;
+                    singleOutputCanvas.height = imageDataToRender.height;
                     singleOutputCanvas
                         .getContext('2d')
-                        .putImageData(imageData, 0, 0);
+                        .putImageData(imageDataToRender, 0, 0);
+                } else {
+                    // Clear canvas if no specific image data to render
+                    singleOutputCanvas
+                        .getContext('2d')
+                        .clearRect(
+                            0,
+                            0,
+                            singleOutputCanvas.width,
+                            singleOutputCanvas.height
+                        );
                 }
             }
         } else {
-            if (singleOutputCanvas) singleOutputCanvas.classList.add('hidden');
+            if (singleOutputCanvas) {
+                singleOutputCanvas.classList.add('hidden');
+                singleOutputCanvas
+                    .getContext('2d')
+                    .clearRect(
+                        0,
+                        0,
+                        singleOutputCanvas.width,
+                        singleOutputCanvas.height
+                    );
+            }
             if (batchOutputGrid) {
                 batchOutputGrid.classList.add('hidden');
                 clearOutputGrid();

@@ -8,6 +8,18 @@ import { dom } from '../dom.js';
  * @returns {HTMLCanvasElement} A canvas with the image data drawn on it.
  */
 function _imageDataToCanvas(imageData) {
+    // Ensure imageData is valid before accessing properties
+    if (
+        !imageData ||
+        typeof imageData.width === 'undefined' ||
+        typeof imageData.height === 'undefined'
+    ) {
+        console.error(
+            'Invalid ImageData passed to _imageDataToCanvas:',
+            imageData
+        );
+        return null; // Return null or throw an error if input is invalid
+    }
     const canvas = document.createElement('canvas');
     canvas.width = imageData.width;
     canvas.height = imageData.height;
@@ -24,16 +36,10 @@ export async function copyOutputToClipboard() {
             await navigator.clipboard.writeText(state.outputData);
             dom.statusText().textContent = 'Status: Text copied to clipboard!';
         } else {
-            let canvas = dom.getOutputCanvas();
-            if (Array.isArray(state.outputData)) {
-                canvas =
-                    state.outputData.length > 0 && state.outputData[0]
-                        ? _imageDataToCanvas(state.outputData[0])
-                        : null;
-            } else if (state.outputData) {
+            // Now, state.outputData directly holds the ImageData for all image tasks (including SAM cutout)
+            let canvas = null;
+            if (state.outputData) {
                 canvas = _imageDataToCanvas(state.outputData);
-            } else {
-                canvas = null;
             }
             if (!canvas) return;
 
@@ -82,7 +88,7 @@ export async function saveOutputToFile() {
     }
 
     const baseFilename =
-        filenameInput?.value.replace(/\.png$/i, '') || 'ai-powertoys-output';
+        filenameInput?.value.replace(/\\.png$/i, '') || 'ai-powertoys-output';
 
     if (Array.isArray(state.outputData) && state.outputData.length > 0) {
         const zip = new JSZip();
@@ -105,6 +111,7 @@ export async function saveOutputToFile() {
         link.click();
         URL.revokeObjectURL(link.href);
     } else if (state.outputData) {
+        // Now, state.outputData is directly the ImageData for all single image tasks.
         const canvas = _imageDataToCanvas(state.outputData);
         if (!canvas) return;
 
