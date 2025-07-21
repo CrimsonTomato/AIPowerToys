@@ -30,7 +30,7 @@ Currently only support Chrome. WebGPU tested on Chrome Canary.
 
     ```bash
     git clone https://github.com/CrimsonTomato/AIPowerToys.git
-    cd ai-powertoys
+    cd AIPowerToys
     ```
 
 2. **Install dependencies:**
