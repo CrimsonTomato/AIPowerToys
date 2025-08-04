@@ -34,8 +34,10 @@ export function applyTheme() {
     }
 }
 
-// --- NEW: Subscription setup ---
+// --- Subscription setup ---
 export function initSidebarSubscriptions() {
+    eventBus.on('themeChanged', applyTheme);
+
     eventBus.on('directoryHandleChanged', renderFolderConnectionStatus);
     eventBus.on('sidebarWidthChanged', applySidebarWidth);
     eventBus.on('gpuSupportChanged', renderGpuStatus);
@@ -44,6 +46,6 @@ export function initSidebarSubscriptions() {
     // Initial renders
     renderFolderConnectionStatus();
     applySidebarWidth();
-    applyTheme();
+    applyTheme(); // This call correctly sets the initial theme
     renderGpuStatus();
 }
