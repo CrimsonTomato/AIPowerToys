@@ -1,18 +1,18 @@
 import { state, updateModelStatus, setDownloadProgress } from '../state.js';
 import { dom } from '../dom.js';
-import { checkAllModelsStatus } from './fileSystemController.js';
+import { checkAllModelsStatus } from '../services/modelStatusService.js';
 
 /**
  * Downloads a model repository from Hugging Face, including only .onnx and .json files.
  * @param {string} moduleId - The ID of the model to download.
  */
 export async function downloadModel(moduleId) {
-    if (!state.directoryHandle) {
+    if (!state.system.directoryHandle) {
         dom.statusText().textContent =
             'Status: Please connect to a models folder first!';
         return;
     }
-    const module = state.modules.find(m => m.id === moduleId);
+    const module = state.models.modules.find(m => m.id === moduleId);
     if (!module) return;
 
     updateModelStatus(moduleId, { status: 'downloading' });
@@ -45,10 +45,10 @@ export async function downloadModel(moduleId) {
         }
 
         const dirName = moduleId.split('/')[1];
-        const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
-            dirName,
-            { create: true }
-        );
+        const moduleDirHandle =
+            await state.system.directoryHandle.getDirectoryHandle(dirName, {
+                create: true,
+            });
 
         let count = 0;
         for (const fileInfo of filesToDownload) {

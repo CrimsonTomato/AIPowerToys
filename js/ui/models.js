@@ -1,7 +1,7 @@
 import Sortable from 'sortablejs';
 import { dom } from '../dom.js';
 import { state, setModelOrder } from '../state.js';
-import { saveAppState } from '../_controllers/fileSystemController.js';
+import { saveAppState } from '../services/persistenceService.js';
 import { eventBus } from '../_events/eventBus.js';
 
 let modelSearchTerm = '';

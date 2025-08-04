@@ -17,10 +17,8 @@ import {
     copyOutputToClipboard,
     saveOutputToFile,
 } from '../_controllers/outputController.js';
-import {
-    connectToDirectory,
-    saveAppState,
-} from '../_controllers/fileSystemController.js';
+import { connectToDirectory } from '../_controllers/fileSystemController.js';
+import { saveAppState } from '../services/persistenceService.js';
 import { openImageModal, closeImageModal } from '../ui/components/modal.js';
 import { clearInputs } from './inputHandlers.js';
 import { dom } from '../dom.js';

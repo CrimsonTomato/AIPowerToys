@@ -6,6 +6,8 @@ import { initWorker } from './_controllers/modelController.js';
 import { initSidebarView } from './ui/views/SidebarView.js';
 import { initWorkbenchView } from './ui/views/WorkbenchView.js';
 import { dom } from './dom.js';
+import { loadAppState } from './services/persistenceService.js';
+import { checkAllModelsStatus } from './services/modelStatusService.js';
 
 async function loadAllModules() {
     try {
@@ -69,8 +71,12 @@ async function main() {
     initSidebarView();
     initWorkbenchView();
 
-    // 6. Load Persistent State (triggers initial render events in components)
-    await loadDirectoryHandle();
+    // 6. Load Persistent State
+    await loadAppState();
+    if (await loadDirectoryHandle()) {
+        // If a directory handle was successfully loaded and permissions are granted...
+        await checkAllModelsStatus(); // ...check the status of all models.
+    }
 }
 
 main();

@@ -1,6 +1,6 @@
 import { dom } from '../dom.js';
 import { state, setSidebarWidth } from '../state.js';
-import { saveAppState } from '../_controllers/fileSystemController.js';
+import { saveAppState } from '../services/persistenceService.js';
 import { eventBus } from './eventBus.js';
 import {
     getImageBounds,

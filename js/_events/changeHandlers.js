@@ -3,7 +3,7 @@ import {
     setSelectedVariant,
     setProcessingMode,
 } from '../state.js';
-import { saveAppState } from '../_controllers/fileSystemController.js';
+import { saveAppState } from '../services/persistenceService.js';
 import { handleSearch } from '../ui/models.js';
 import { loadImageFiles, loadAudioFile } from './inputHandlers.js';
 import { debounce } from '../utils.js';
