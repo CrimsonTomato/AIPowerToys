@@ -1,13 +1,12 @@
 import { dom } from '../dom.js';
 import { state, setSidebarWidth } from '../state.js';
 import { saveAppState } from '../_controllers/fileSystemController.js';
-import { applySidebarWidth } from '../ui/sidebar.js';
+import { eventBus } from './eventBus.js';
 import {
-    renderComparisonView,
-    redrawCompareCanvas,
     getImageBounds,
-} from '../ui/workbench.js';
-import { showInputOnCanvas } from '../ui/workbench.js';
+    redrawCompareCanvas,
+    showInputOnCanvas,
+} from '../ui/components/ImageOutput.js';
 
 let isResizingSidebar = false;
 let isDraggingSlider = false;
@@ -25,7 +24,7 @@ function handleMouseDown(e) {
         e.target.closest('.output-area') &&
         state.workbench.output.comparisonMode === 'hold'
     ) {
-        showInputOnCanvas();
+        showInputOnCanvas(); // Call imported function directly
         e.preventDefault();
     }
 }
@@ -33,12 +32,13 @@ function handleMouseDown(e) {
 function handleMouseMove(e) {
     if (isResizingSidebar) {
         const newWidth = Math.max(300, Math.min(e.clientX, 800));
-        setSidebarWidth(newWidth);
-        applySidebarWidth();
+        // This is a direct DOM manipulation for live-resizing feedback,
+        // which is a reasonable exception. The state will be updated on mouseup.
+        dom.appContainer().style.gridTemplateColumns = `${newWidth}px 1fr`;
     } else if (isDraggingSlider) {
         const outputArea = dom.outputArea();
         if (!outputArea) return;
-        const imageBounds = getImageBounds();
+        const imageBounds = getImageBounds(); // Call imported function
         const rect = outputArea.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const position = Math.max(
@@ -46,22 +46,28 @@ function handleMouseMove(e) {
             Math.min(imageBounds.x + imageBounds.width, mouseX)
         );
         dom.imageCompareSlider().style.left = `${position}px`;
-        redrawCompareCanvas(position);
+        redrawCompareCanvas(position); // Call imported function
     }
 }
 
-function handleMouseUp() {
+function handleMouseUp(e) {
     if (isResizingSidebar) {
         isResizingSidebar = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        // Set state which will trigger the event bus to apply the width correctly
+        setSidebarWidth(
+            parseInt(dom.appContainer().style.gridTemplateColumns, 10)
+        );
         saveAppState();
     }
     if (isDraggingSlider) {
         isDraggingSlider = false;
     }
     if (state.workbench.output.comparisonMode === 'hold') {
-        renderComparisonView();
+        // Trigger a re-render to show the output again by emitting an event
+        // that the ImageOutput component is listening to.
+        eventBus.emit('outputDataChanged');
     }
 }
 
