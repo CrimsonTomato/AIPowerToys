@@ -1,24 +1,97 @@
-import { RawImage, Tensor } from '@huggingface/transformers';
+import {
+    RawImage,
+    Tensor,
+    SamModel,
+    AutoProcessor,
+} from '@huggingface/transformers';
 import { applyMaskToImageData } from '../../js/ui/utils/displayUtils.js';
 
 /**
- * Post-processes the output of a segment-anything model.
- * It overlays the highest-scoring mask on top of the original image.
- * @param {Array} output - The raw output from the pipeline, an array containing one multi-channel Tensor (the mask).
- * @param {string} inputUrl - The base64 URL of the original input image.
- * @param {object} options - The pipeline options, which includes the raw model output (`raw`).
- * @returns {Promise<{imageData: ImageData, rawMaskOnly: RawImage}>} An object containing the default output ImageData (cutout) and the raw mask for alternative visualizations.
+ * Custom pipeline creation function for the SAM model.
+ * This is called by the generic worker instead of the default pipeline factory.
+ * @param {string} modelId The model ID to load.
+ * @param {object} options The pipeline options.
+ * @returns {Promise<object>} A custom pipeline object with model, processor, and a dispose method.
  */
-export async function postprocess(output, inputUrl, options) {
-    const raw = options.raw;
-    if (!raw || !raw.iou_scores || !raw.pred_masks) {
+export async function createPipeline(modelId, options) {
+    const model = await SamModel.from_pretrained(modelId, options);
+    const processor = await AutoProcessor.from_pretrained(modelId);
+    return {
+        model,
+        processor,
+        dispose: async () => {
+            if (model?.dispose) await model.dispose();
+        },
+    };
+}
+
+/**
+ * Custom inference function for the SAM model.
+ * @param {object} pipeline The custom pipeline object from createPipeline.
+ * @param {RawImage | string} data The input data (image URL).
+ * @param {object} options The pipeline options containing points and labels.
+ * @returns {Promise<object>} A combined object containing the raw model output and necessary pre-processing data.
+ */
+export async function run(pipeline, data, options) {
+    const image = await RawImage.read(data);
+    const { image_width, image_height, input_points, input_labels } = options;
+
+    // Scale points from normalized (0-1) to original image dimensions
+    const scaledPoints = input_points.map(p => [
+        p[0] * image_width,
+        p[1] * image_height,
+    ]);
+
+    const inputs = await pipeline.processor(image, {
+        input_points: [scaledPoints],
+        input_labels: [input_labels],
+    });
+
+    const modelOutput = await pipeline.model(inputs);
+
+    // FIX: Return a combined object with both model output and processor metadata
+    return {
+        modelOutput: modelOutput,
+        original_sizes: inputs.original_sizes,
+        reshaped_input_sizes: inputs.reshaped_input_sizes,
+    };
+}
+
+/**
+ * Post-processes the output of the SAM model.
+ * @param {object} inferenceResult - The combined result object from the custom `run` function.
+ * @param {string} inputUrl - The URL of the original input image.
+ * @param {object} options - The pipeline options.
+ * @param {object} pipeline - The custom pipeline object, containing the processor.
+ * @returns {Promise<{imageData: ImageData, rawMaskOnly: RawImage}>} An object with the final cutout image and the raw mask.
+ */
+export async function postprocess(
+    inferenceResult,
+    inputUrl,
+    options,
+    pipeline
+) {
+    // FIX: Destructure the combined result object
+    const { modelOutput, original_sizes, reshaped_input_sizes } =
+        inferenceResult;
+
+    if (!modelOutput || !modelOutput.iou_scores || !modelOutput.pred_masks) {
+        throw new Error('Could not find raw model output (masks and scores).');
+    }
+    if (!pipeline || !pipeline.processor) {
         throw new Error(
-            'Could not find raw model output (masks and scores) in pipeline options.'
+            'SAM processor not found in pipeline object for post-processing.'
         );
     }
 
-    const scores = raw.iou_scores.data;
-    const masksTensor = output[0]; // The single Tensor from the output array.
+    // FIX: Use the correct variables passed to the function
+    const masks = await pipeline.processor.post_process_masks(
+        modelOutput.pred_masks,
+        original_sizes,
+        reshaped_input_sizes
+    );
+    const masksTensor = masks[0];
+    const scores = modelOutput.iou_scores.data;
 
     // Select the mask with the highest IoU score
     let bestIndex = 0;
@@ -28,33 +101,18 @@ export async function postprocess(output, inputUrl, options) {
         }
     }
 
-    // Manual TENSOR SLICING:
-    // 1. Squeeze the batch dimension (dim 0) -> [num_masks, height, width]
-    // 2. Extract the data for the best mask using subarray
-    // 3. Create a new 2D Tensor from this data with the correct shape
-    // 4. Unsqueeze to 3D [1, height, width] as RawImage.fromTensor expects 3D for boolean
-    const [num_masks, height, width] = masksTensor.squeeze(0).dims; // Get dimensions after first squeeze
+    // Manually slice the tensor to extract the best mask
+    const squeezed = masksTensor.squeeze(0);
+    const [num_masks, height, width] = squeezed.dims;
     const maskDataSize = height * width;
-    const startOffset = bestIndex * maskDataSize;
-    const endOffset = startOffset + maskDataSize;
+    const bestMaskData = squeezed.data.subarray(
+        bestIndex * maskDataSize,
+        (bestIndex + 1) * maskDataSize
+    );
+    const bestMask2DTensor = new Tensor('bool', bestMaskData, [height, width]);
+    const bestMaskRawImage = RawImage.fromTensor(bestMask2DTensor.unsqueeze(0));
 
-    // Get the raw data of the squeezed tensor (which is Uint8Array for bool type)
-    const bestMaskRawData = masksTensor
-        .squeeze(0)
-        .data.subarray(startOffset, endOffset);
-
-    // Create a new 2D tensor from the extracted data.
-    const bestMask2DTensor = new Tensor('bool', bestMaskRawData, [
-        height,
-        width,
-    ]);
-
-    // fromTensor with boolean data expects a 3D tensor [C, H, W]. Add a channel dimension of size 1.
-    const bestMask3DTensor = bestMask2DTensor.unsqueeze(0);
-
-    const bestMaskRawImage = RawImage.fromTensor(bestMask3DTensor);
-
-    // Load the original image to draw on for the 'cutout' output
+    // Load original image and apply the mask to its alpha channel
     const imageBitmap = await createImageBitmap(
         await (await fetch(inputUrl)).blob()
     );
@@ -71,8 +129,6 @@ export async function postprocess(output, inputUrl, options) {
         imageBitmap.height
     );
 
-    // Create the 'cutout' image data (transparent background)
-    // We convert the boolean mask (0 or 1) to a grayscale 0-255 mask for applyMaskToImageData
     const grayscaleMaskData = new Uint8ClampedArray(
         bestMaskRawImage.data.map(val => val * 255)
     );
@@ -88,9 +144,8 @@ export async function postprocess(output, inputUrl, options) {
         grayscaleMaskRawImage
     );
 
-    // Return both the default output (cutout) and the raw mask for other visualization modes
     return {
         imageData: cutoutImageData,
-        rawMaskOnly: bestMaskRawImage, // Store this for client-side rendering of other modes
+        rawMaskOnly: bestMaskRawImage,
     };
 }
