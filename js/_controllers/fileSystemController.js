@@ -43,7 +43,7 @@ export async function loadDirectoryHandle() {
         }
     }
     // Set handle to null if nothing was loaded, to trigger "Not Connected" state
-    if (!state.directoryHandle) {
+    if (!state.system.directoryHandle) {
         setDirectoryHandle(null);
     }
     return false;
@@ -51,13 +51,13 @@ export async function loadDirectoryHandle() {
 
 export async function checkAllModelsStatus() {
     // Sequentially check models to prevent race conditions on UI updates
-    for (const module of state.modules) {
+    for (const module of state.models.modules) {
         await checkModelStatus(module);
     }
 }
 
 async function checkModelStatus(module) {
-    if (!state.directoryHandle) {
+    if (!state.system.directoryHandle) {
         updateModelStatus(module.id, { status: 'missing' }); // Set to missing if no dir
         return;
     }
@@ -66,9 +66,8 @@ async function checkModelStatus(module) {
 
     try {
         const repoDirName = module.id.split('/')[1];
-        const moduleDirHandle = await state.directoryHandle.getDirectoryHandle(
-            repoDirName
-        );
+        const moduleDirHandle =
+            await state.system.directoryHandle.getDirectoryHandle(repoDirName);
 
         let onnxFiles = [];
         let onnxSubDir = '';
@@ -94,7 +93,7 @@ async function checkModelStatus(module) {
 
         if (discoveredVariants.length > 0) {
             discoveredVariants = sortVariants(discoveredVariants);
-            const existingStatus = state.modelStatuses[module.id] || {};
+            const existingStatus = state.models.modelStatuses[module.id] || {};
             const selectedVariant = discoveredVariants.some(
                 v => v.name === existingStatus.selectedVariant
             )
@@ -120,11 +119,11 @@ async function checkModelStatus(module) {
  * @returns {Promise<ArrayBuffer|null>} The file content as an ArrayBuffer, or null if not found.
  */
 export async function getFileBuffer(relativePath) {
-    if (!state.directoryHandle) return null;
+    if (!state.system.directoryHandle) return null;
 
     const pathParts = relativePath.split('/');
     try {
-        let currentHandle = state.directoryHandle;
+        let currentHandle = state.system.directoryHandle;
         for (const part of pathParts.slice(0, -1)) {
             currentHandle = await currentHandle.getDirectoryHandle(part);
         }
@@ -251,7 +250,10 @@ async function loadAppState() {
         // Use state setters to ensure events are fired for initial UI render
         setTheme(savedState.theme || 'light');
         setSidebarWidth(savedState.sidebarWidth || 500);
-        if (state.gpuSupported && typeof savedState.useGpu !== 'undefined') {
+        if (
+            state.system.gpuSupported &&
+            typeof savedState.useGpu !== 'undefined'
+        ) {
             setUseGpu(savedState.useGpu);
         }
         setProcessingMode(savedState.processingMode || 'batch');
@@ -267,8 +269,10 @@ async function loadAppState() {
         ) {
             collapsedModelsToLoad = new Set(savedState.collapsedModels);
         } else {
-            if (state.modules && state.modules.length > 0) {
-                collapsedModelsToLoad = new Set(state.modules.map(m => m.id));
+            if (state.models.modules && state.models.modules.length > 0) {
+                collapsedModelsToLoad = new Set(
+                    state.models.modules.map(m => m.id)
+                );
             }
         }
         setCollapsedModels(collapsedModelsToLoad);
@@ -276,8 +280,8 @@ async function loadAppState() {
         // Default initial state
         setTheme('light');
         setSidebarWidth(500);
-        if (state.modules && state.modules.length > 0) {
-            setCollapsedModels(new Set(state.modules.map(m => m.id)));
+        if (state.models.modules && state.models.modules.length > 0) {
+            setCollapsedModels(new Set(state.models.modules.map(m => m.id)));
         } else {
             setCollapsedModels(new Set());
         }
@@ -291,13 +295,13 @@ async function loadAppState() {
  */
 export async function saveAppState() {
     const appState = {
-        sidebarWidth: state.sidebarWidth,
-        theme: state.theme,
-        useGpu: state.useGpu,
-        processingMode: state.processingMode,
-        starredModels: Array.from(state.starredModels),
-        modelOrder: state.modelOrder,
-        collapsedModels: Array.from(state.collapsedModels),
+        sidebarWidth: state.ui.sidebarWidth,
+        theme: state.system.theme,
+        useGpu: state.system.useGpu,
+        processingMode: state.workbench.processingMode,
+        starredModels: Array.from(state.models.starredModels),
+        modelOrder: state.models.modelOrder,
+        collapsedModels: Array.from(state.models.collapsedModels),
     };
     await set(APP_STATE_KEY, appState);
 }

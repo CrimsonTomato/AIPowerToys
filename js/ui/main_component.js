@@ -51,7 +51,7 @@ export async function renderApp() {
 export function renderStatus() {
     // If the workbench is currently re-rendering its DOM, abort this status update.
     // The update will be called manually by renderWorkbench when it's finished.
-    if (state.isRenderingWorkbench) return;
+    if (state.ui.isRenderingWorkbench) return;
 
     renderInputState();
     renderOutputState();
@@ -75,18 +75,22 @@ export function renderStatus() {
 
     if (!statusEl || !runBtn || !timerEl || !runBtnIcon || !runBtnText) return;
 
-    const imageReady = state.inputDataURLs.length > 0;
-    const audioReady = state.inputAudioURL !== null;
+    const imageReady = state.workbench.input.imageURLs.length > 0;
+    const audioReady = state.workbench.input.audioURL !== null;
     const inputReady = imageReady || audioReady;
-    const outputReady = state.outputData !== null;
+    const outputReady = state.workbench.output.data !== null;
 
-    const isSingleImageInput = imageReady && state.inputDataURLs.length === 1;
-    const isImageOutput = outputReady && typeof state.outputData !== 'string';
-    const isBatchImageOutput = Array.isArray(state.outputData);
-    const activeModule = state.modules.find(m => m.id === state.activeModuleId);
+    const isSingleImageInput =
+        imageReady && state.workbench.input.imageURLs.length === 1;
+    const isImageOutput =
+        outputReady && typeof state.workbench.output.data !== 'string';
+    const isBatchImageOutput = Array.isArray(state.workbench.output.data);
+    const activeModule = state.models.modules.find(
+        m => m.id === state.models.activeModuleId
+    );
     const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
 
-    if (state.isProcessing) {
+    if (state.workbench.isProcessing) {
         statusEl.textContent = 'Status: Processing... Please wait.';
         runBtn.disabled = true;
         runBtnText.textContent = 'Processing...';
@@ -104,7 +108,8 @@ export function renderStatus() {
         timerEl.classList.remove('hidden');
         if (!timerInterval) {
             timerInterval = setInterval(() => {
-                const elapsed = (Date.now() - state.inferenceStartTime) / 1000;
+                const elapsed =
+                    (Date.now() - state.workbench.inferenceStartTime) / 1000;
                 timerEl.textContent = `Time: ${elapsed.toFixed(2)}s`;
             }, 100);
         }
@@ -113,15 +118,18 @@ export function renderStatus() {
         timerInterval = null;
         let statusMessage = 'Status: ';
 
-        if (!state.activeModuleId) {
+        if (!state.models.activeModuleId) {
             statusMessage += 'Select a model from the sidebar.';
         } else if (!inputReady) {
             statusMessage += 'Choose an input file to process.';
-        } else if (isSamTask && state.inputPoints.length === 0) {
+        } else if (isSamTask && state.workbench.input.points.length === 0) {
             statusMessage += 'Click on the image to add prompt points.';
         } else {
-            const modelStatus = state.modelStatuses[activeModule.id] || {};
-            const numInputs = imageReady ? state.inputDataURLs.length : 1;
+            const modelStatus =
+                state.models.modelStatuses[activeModule.id] || {};
+            const numInputs = imageReady
+                ? state.workbench.input.imageURLs.length
+                : 1;
             const inputType = imageReady ? 'image(s)' : 'audio file';
             statusMessage += `Ready to process ${numInputs} ${inputType}. (Model: ${
                 activeModule.name
@@ -129,23 +137,23 @@ export function renderStatus() {
         }
         statusEl.textContent = statusMessage;
 
-        let isRunDisabled = !state.activeModuleId || !inputReady;
+        let isRunDisabled = !state.models.activeModuleId || !inputReady;
         if (isSamTask) {
             // For SAM, the run button is a fallback; primary trigger is clicking a point.
             // We disable it because it doesn't make sense to run without points.
             isRunDisabled =
-                !state.activeModuleId ||
+                !state.models.activeModuleId ||
                 !imageReady ||
-                state.inputPoints.length === 0;
+                state.workbench.input.points.length === 0;
         }
         runBtn.disabled = isRunDisabled;
 
         runBtnText.textContent = 'Run Inference';
         runBtnIcon.className = 'btn-icon';
 
-        if (state.inferenceDuration !== null) {
+        if (state.workbench.inferenceDuration !== null) {
             timerEl.classList.remove('hidden');
-            const finalTime = state.inferenceDuration / 1000;
+            const finalTime = state.workbench.inferenceDuration / 1000;
             timerEl.textContent = `Finished in ${finalTime.toFixed(2)}s`;
         } else {
             timerEl.classList.add('hidden');
@@ -154,7 +162,7 @@ export function renderStatus() {
         if (clearInputBtn) clearInputBtn.disabled = !inputReady;
         if (uploadImageBtn) uploadImageBtn.disabled = imageReady;
         if (clearPointsBtn)
-            clearPointsBtn.disabled = state.inputPoints.length === 0;
+            clearPointsBtn.disabled = state.workbench.input.points.length === 0;
         if (copyBtn) copyBtn.disabled = !outputReady;
         if (saveBtn) saveBtn.disabled = !outputReady;
         if (viewInputBtn) viewInputBtn.disabled = !isSingleImageInput;

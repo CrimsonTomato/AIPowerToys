@@ -3,13 +3,16 @@ import { state, removeInputPoint } from '../../state.js'; // Import removeInputP
 
 export function renderInputState() {
     // --- Image Input State ---
-    const imageReady = state.inputDataURLs.length > 0;
-    const isBatchMode = state.inputDataURLs.length > 1; // Note: SAM task will prevent this
+    const imageReady = state.workbench.input.imageURLs.length > 0;
+    const isBatchMode = state.workbench.input.imageURLs.length > 1; // Note: SAM task will prevent this
     const dropArea = dom.getImageDropArea();
 
     if (dropArea) {
-        const activeModule = state.modules.find(m => m.id === state.activeModuleId);
-        const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
+        const activeModule = state.models.modules.find(
+            m => m.id === state.models.activeModuleId
+        );
+        const isSamTask =
+            activeModule?.task === 'image-segmentation-with-prompt';
         const placeholder = dom.getImageInputPlaceholder();
         const inputGrid = dom.imageInputGrid();
         const singlePreview = dom.getImagePreview();
@@ -29,7 +32,7 @@ export function renderInputState() {
         if (placeholder) {
             placeholder.classList.toggle('hidden', imageReady);
         }
-        
+
         if (singlePreview) singlePreview.classList.add('hidden');
         if (inputGrid) inputGrid.classList.add('hidden');
 
@@ -39,7 +42,7 @@ export function renderInputState() {
                 // Render batch grid for other image tasks
                 inputGrid.classList.remove('hidden');
                 inputGrid.innerHTML = '';
-                state.inputDataURLs.forEach(url => {
+                state.workbench.input.imageURLs.forEach(url => {
                     const item = document.createElement('div');
                     item.className = 'grid-image-item';
                     item.dataset.imageDataUrl = url;
@@ -48,7 +51,7 @@ export function renderInputState() {
                 });
             } else if (singlePreview) {
                 singlePreview.classList.remove('hidden');
-                singlePreview.src = state.inputDataURLs[0];
+                singlePreview.src = state.workbench.input.imageURLs[0];
             }
         } else {
             if (singlePreview) singlePreview.src = '';
@@ -57,17 +60,25 @@ export function renderInputState() {
 
         // Render prompt points if it's a SAM task and an image is loaded
         if (pointsContainer) {
-            pointsContainer.classList.toggle('hidden', !isSamTask || !imageReady);
+            pointsContainer.classList.toggle(
+                'hidden',
+                !isSamTask || !imageReady
+            );
             pointsContainer.innerHTML = '';
             if (isSamTask && imageReady) {
-                state.inputPoints.forEach((p, index) => {
+                state.workbench.input.points.forEach((p, index) => {
                     const pointEl = document.createElement('div');
                     pointEl.className = 'prompt-point';
-                    pointEl.classList.add(p.label === 1 ? 'positive' : 'negative');
+                    pointEl.classList.add(
+                        p.label === 1 ? 'positive' : 'negative'
+                    );
                     pointEl.style.left = `${p.point[0] * 100}%`;
                     pointEl.style.top = `${p.point[1] * 100}%`;
                     pointEl.dataset.pointIndex = index; // Store index for removal
-                    pointEl.title = p.label === 1 ? "Positive point (click to remove)" : "Negative point (click to remove)";
+                    pointEl.title =
+                        p.label === 1
+                            ? 'Positive point (click to remove)'
+                            : 'Negative point (click to remove)';
                     pointsContainer.appendChild(pointEl);
                 });
             }
@@ -75,7 +86,7 @@ export function renderInputState() {
     }
 
     // --- Audio Input State ---
-    const audioReady = state.inputAudioURL !== null;
+    const audioReady = state.workbench.input.audioURL !== null;
     const audioDropArea = dom.getAudioDropArea();
     if (audioDropArea) {
         const label = document.getElementById('audio-input-label');
@@ -90,14 +101,15 @@ export function renderInputState() {
         if (audioReady) {
             const player = dom.getAudioPreviewPlayer();
             const filenameDisplay = dom.getAudioFilenameDisplay();
-            player.src = state.inputAudioURL.url;
-            filenameDisplay.textContent = state.inputAudioURL.filename;
+            player.src = state.workbench.input.audioURL.url;
+            filenameDisplay.textContent =
+                state.workbench.input.audioURL.filename;
         }
     }
 }
 
 // Attach event listener for removing points
-document.body.addEventListener('click', (e) => {
+document.body.addEventListener('click', e => {
     const pointEl = e.target.closest('.prompt-point');
     if (pointEl && pointEl.dataset.pointIndex !== undefined) {
         e.stopPropagation(); // Prevent bubbling up to add another point

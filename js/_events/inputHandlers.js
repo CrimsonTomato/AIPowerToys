@@ -1,12 +1,12 @@
 import {
-    clearInputDataURLs,
+    clearInputImageURLs,
     clearInputAudioURL,
-    setInputDataURLs,
+    setInputImageURLs,
     setInputAudioURL,
 } from '../state.js';
 
 export function clearInputs() {
-    clearInputDataURLs();
+    clearInputImageURLs();
     clearInputAudioURL();
 }
 
@@ -30,5 +30,5 @@ export async function loadImageFiles(files) {
         });
     });
     urls = (await Promise.all(readPromises)).filter(Boolean);
-    setInputDataURLs(urls);
+    setInputImageURLs(urls);
 }

@@ -42,12 +42,12 @@ function clearOutputGrid() {
 }
 
 export function renderOutputState() {
-    const outputReady = state.outputData !== null;
+    const outputReady = state.workbench.output.data !== null;
 
     // --- Image Output ---
     const outputArea = dom.outputArea();
     if (outputArea) {
-        const isBatchMode = Array.isArray(state.outputData);
+        const isBatchMode = Array.isArray(state.workbench.output.data);
         const singleOutputCanvas = dom.getOutputCanvas();
         const batchOutputGrid = dom.outputImageGrid();
         const outputPlaceholder = document.getElementById('output-placeholder');
@@ -59,14 +59,14 @@ export function renderOutputState() {
             if (isBatchMode) {
                 singleOutputCanvas.classList.add('hidden');
                 batchOutputGrid.classList.remove('hidden');
-                renderOutputGrid(state.outputData);
+                renderOutputGrid(state.workbench.output.data);
             } else {
                 batchOutputGrid.classList.add('hidden');
                 singleOutputCanvas.classList.remove('hidden');
 
-                // For SAM, state.outputData is now directly the cutout ImageData.
+                // For SAM, state.workbench.output.data is now directly the cutout ImageData.
                 // For other tasks, it's also directly ImageData.
-                const imageDataToRender = state.outputData;
+                const imageDataToRender = state.workbench.output.data;
 
                 if (
                     imageDataToRender &&
@@ -112,8 +112,8 @@ export function renderOutputState() {
     // --- Text Output ---
     const textOutputArea = dom.getTextOutputArea();
     if (textOutputArea) {
-        if (outputReady && typeof state.outputData === 'string') {
-            textOutputArea.value = state.outputData;
+        if (outputReady && typeof state.workbench.output.data === 'string') {
+            textOutputArea.value = state.workbench.output.data;
         } else {
             textOutputArea.value = '';
         }

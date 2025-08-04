@@ -49,15 +49,18 @@ function handleStarClick(e) {
 }
 
 function activateModule(moduleId) {
-    if (!moduleId || state.activeModuleId === moduleId) {
+    if (!moduleId || state.models.activeModuleId === moduleId) {
         return;
     }
 
-    const module = state.modules.find(m => m.id === moduleId);
+    const module = state.models.modules.find(m => m.id === moduleId);
     if (module && module.configurable_params) {
         for (const param of module.configurable_params) {
             // Only set default if param doesn't exist for this module
-            if (state.runtimeConfigs[moduleId]?.[param.id] === undefined) {
+            if (
+                state.workbench.runtimeConfigs[moduleId]?.[param.id] ===
+                undefined
+            ) {
                 const defaultValue =
                     param.default === 'true'
                         ? true
@@ -103,8 +106,8 @@ function handleRunInference() {
 }
 
 function handleViewInput() {
-    if (state.inputDataURLs.length > 0) {
-        openImageModal('data-url', state.inputDataURLs[0]);
+    if (state.workbench.input.imageURLs.length > 0) {
+        openImageModal('data-url', state.workbench.input.imageURLs[0]);
     }
 }
 
@@ -117,34 +120,36 @@ function handleSaveOutput() {
 }
 
 function handleViewOutput() {
-    if (!state.outputData) return;
-    const imageData = Array.isArray(state.outputData)
-        ? state.outputData[0]
-        : state.outputData;
+    if (!state.workbench.output.data) return;
+    const imageData = Array.isArray(state.workbench.output.data)
+        ? state.workbench.output.data[0]
+        : state.workbench.output.data;
     if (imageData && typeof imageData !== 'string') {
         openImageModal('image-data', imageData);
     }
 }
 
 function handleToggleSlideCompare() {
-    const newMode = state.comparisonMode === 'slide' ? 'none' : 'slide';
+    const newMode =
+        state.workbench.output.comparisonMode === 'slide' ? 'none' : 'slide';
     setComparisonMode(newMode);
 }
 
 function handleToggleHoldCompare() {
-    const newMode = state.comparisonMode === 'hold' ? 'none' : 'hold';
+    const newMode =
+        state.workbench.output.comparisonMode === 'hold' ? 'none' : 'hold';
     setComparisonMode(newMode);
 }
 
 function handleToggleTheme() {
-    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+    const newTheme = state.system.theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     saveAppState();
 }
 
 function handleToggleGpu() {
-    if (!state.gpuSupported) return;
-    setUseGpu(!state.useGpu);
+    if (!state.system.gpuSupported) return;
+    setUseGpu(!state.system.useGpu);
     saveAppState();
 }
 
@@ -164,7 +169,12 @@ function handleUploadImage() {
 function handlePointAndClick(e) {
     const area = e.target.closest('.point-and-click-area');
     // Add guards to prevent action when not ready or already processing
-    if (!area || state.inputDataURLs.length === 0 || state.isProcessing) return;
+    if (
+        !area ||
+        state.workbench.input.imageURLs.length === 0 ||
+        state.workbench.isProcessing
+    )
+        return;
 
     // Prevent context menu on right click
     e.preventDefault();
@@ -228,7 +238,9 @@ export function initClickListeners() {
     // This listener handles all normal button clicks.
     document.body.addEventListener('click', e => {
         // We check for the closest matching selector for delegation.
-        const matchingSelector = Object.keys(clickHandlers).find(selector => e.target.closest(selector));
+        const matchingSelector = Object.keys(clickHandlers).find(selector =>
+            e.target.closest(selector)
+        );
 
         if (matchingSelector) {
             clickHandlers[matchingSelector](e);

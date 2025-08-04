@@ -16,7 +16,7 @@ export function getImageBounds() {
 }
 
 const comparisonResizeObserver = new ResizeObserver(() => {
-    if (state.comparisonMode === 'slide') {
+    if (state.workbench.output.comparisonMode === 'slide') {
         renderComparisonView();
     }
 });
@@ -37,7 +37,9 @@ export async function renderWorkbench() {
         comparisonResizeObserver.unobserve(oldOutputArea);
     }
 
-    const activeModule = state.modules.find(m => m.id === state.activeModuleId);
+    const activeModule = state.models.modules.find(
+        m => m.id === state.models.activeModuleId
+    );
     const outputOptionsContainer = dom.outputOptionsContainer();
     const filenameInput = dom.outputFilenameInput();
 
@@ -101,7 +103,7 @@ function _renderRuntimeControls(activeModule) {
     const container = dom.runtimeControlsContainer();
     if (!container) return;
 
-    const isIterative = state.processingMode === 'iterative';
+    const isIterative = state.workbench.processingMode === 'iterative';
     const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
 
     // Global Processing Mode Control (only if not SAM task)
@@ -135,7 +137,8 @@ function _renderRuntimeControls(activeModule) {
     });
 
     const renderParam = param => {
-        const currentConfigs = state.runtimeConfigs[activeModule.id] || {};
+        const currentConfigs =
+            state.workbench.runtimeConfigs[activeModule.id] || {};
         const currentValue = currentConfigs[param.id] ?? param.default;
 
         const baseAttributes = `id="param-${param.id}" data-param-id="${param.id}" data-module-id="${activeModule.id}"`;
@@ -190,10 +193,10 @@ function _renderRuntimeControls(activeModule) {
 }
 
 async function _getLoadedInputImage() {
-    const inputDataURLs = state.inputDataURLs;
-    if (inputDataURLs.length === 0) return null;
+    const inputImageURLs = state.workbench.input.imageURLs;
+    if (inputImageURLs.length === 0) return null;
 
-    const previewSrc = inputDataURLs[0];
+    const previewSrc = inputImageURLs[0];
 
     if (!inputImageForCompare || inputImageForCompare.src !== previewSrc) {
         inputImageForCompare = new Image();
@@ -215,15 +218,21 @@ export async function renderComparisonView() {
     const holdBtn = dom.compareHoldBtn();
     if (!slider || !slideBtn || !holdBtn) return;
 
-    outputArea.dataset.compareMode = state.comparisonMode;
+    outputArea.dataset.compareMode = state.workbench.output.comparisonMode;
 
-    const isBatchMode = Array.isArray(state.outputData);
+    const isBatchMode = Array.isArray(state.workbench.output.data);
     if (isBatchMode) {
         setComparisonMode('none'); // Cannot compare batches
     }
 
-    slideBtn.classList.toggle('active', state.comparisonMode === 'slide');
-    holdBtn.classList.toggle('active', state.comparisonMode === 'hold');
+    slideBtn.classList.toggle(
+        'active',
+        state.workbench.output.comparisonMode === 'slide'
+    );
+    holdBtn.classList.toggle(
+        'active',
+        state.workbench.output.comparisonMode === 'hold'
+    );
 
     const canvas = dom.getOutputCanvas();
     const inputImage = await _getLoadedInputImage();
@@ -232,13 +241,13 @@ export async function renderComparisonView() {
         canvas &&
         canvas.width > 0 && // Ensure canvas has dimensions (logical)
         inputImage &&
-        state.outputData;
+        state.workbench.output.data;
 
     // Show/hide comparison buttons based on `canCompare`
     if (slideBtn) slideBtn.classList.toggle('hidden', !canCompare);
     if (holdBtn) holdBtn.classList.toggle('hidden', !canCompare);
 
-    if (state.comparisonMode === 'slide' && canCompare) {
+    if (state.workbench.output.comparisonMode === 'slide' && canCompare) {
         const canvasRect = canvas.getBoundingClientRect(); // Visual dimensions of the canvas DOM element
         const outputAreaRect = outputArea.getBoundingClientRect(); // Visual dimensions of the parent output-area
 
@@ -279,16 +288,16 @@ export async function renderComparisonView() {
             canvas.classList.remove('dimmed'); // Remove dimming if comparison not active
         }
         // When comparison is off, re-render the output based on its standard mode.
-        // state.outputData holds the ImageData for the output.
+        // state.workbench.output.data holds the ImageData for the output.
         if (
-            state.outputData &&
-            !Array.isArray(state.outputData) &&
-            state.outputData.width
+            state.workbench.output.data &&
+            !Array.isArray(state.workbench.output.data) &&
+            state.workbench.output.data.width
         ) {
             const ctx = canvas.getContext('2d');
-            canvas.width = state.outputData.width;
-            canvas.height = state.outputData.height;
-            ctx.putImageData(state.outputData, 0, 0);
+            canvas.width = state.workbench.output.data.width;
+            canvas.height = state.workbench.output.data.height;
+            ctx.putImageData(state.workbench.output.data, 0, 0);
         }
     }
 }
@@ -315,7 +324,7 @@ export async function redrawCompareCanvas(splitX_visual) {
     const canvas = dom.getOutputCanvas();
     const ctx = canvas.getContext('2d');
     const inputImage = await _getLoadedInputImage();
-    const outputImageData = state.outputData;
+    const outputImageData = state.workbench.output.data;
 
     if (!canvas || !inputImage || !outputImageData || !outputImageData.width)
         return;

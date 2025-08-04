@@ -32,14 +32,14 @@ export async function copyOutputToClipboard() {
     const copyBtn = dom.copyBtn();
 
     try {
-        if (typeof state.outputData === 'string') {
-            await navigator.clipboard.writeText(state.outputData);
+        if (typeof state.workbench.output.data === 'string') {
+            await navigator.clipboard.writeText(state.workbench.output.data);
             dom.statusText().textContent = 'Status: Text copied to clipboard!';
         } else {
-            // Now, state.outputData directly holds the ImageData for all image tasks (including SAM cutout)
+            // Now, state.workbench.output.data directly holds the ImageData for all image tasks (including SAM cutout)
             let canvas = null;
-            if (state.outputData) {
-                canvas = _imageDataToCanvas(state.outputData);
+            if (state.workbench.output.data) {
+                canvas = _imageDataToCanvas(state.workbench.output.data);
             }
             if (!canvas) return;
 
@@ -73,9 +73,9 @@ export async function copyOutputToClipboard() {
 export async function saveOutputToFile() {
     const filenameInput = dom.outputFilenameInput();
 
-    if (typeof state.outputData === 'string') {
+    if (typeof state.workbench.output.data === 'string') {
         const filename = filenameInput?.value || 'transcription.txt';
-        const blob = new Blob([state.outputData], {
+        const blob = new Blob([state.workbench.output.data], {
             type: 'text/plain;charset=utf-8',
         });
         const url = URL.createObjectURL(blob);
@@ -90,10 +90,13 @@ export async function saveOutputToFile() {
     const baseFilename =
         filenameInput?.value.replace(/\\.png$/i, '') || 'ai-powertoys-output';
 
-    if (Array.isArray(state.outputData) && state.outputData.length > 0) {
+    if (
+        Array.isArray(state.workbench.output.data) &&
+        state.workbench.output.data.length > 0
+    ) {
         const zip = new JSZip();
         let i = 0;
-        for (const imageData of state.outputData) {
+        for (const imageData of state.workbench.output.data) {
             if (!imageData) continue;
             const canvas = _imageDataToCanvas(imageData);
             const blob = await new Promise(resolve =>
@@ -110,9 +113,9 @@ export async function saveOutputToFile() {
         link.href = URL.createObjectURL(zipBlob);
         link.click();
         URL.revokeObjectURL(link.href);
-    } else if (state.outputData) {
-        // Now, state.outputData is directly the ImageData for all single image tasks.
-        const canvas = _imageDataToCanvas(state.outputData);
+    } else if (state.workbench.output.data) {
+        // Now, state.workbench.output.data is directly the ImageData for all single image tasks.
+        const canvas = _imageDataToCanvas(state.workbench.output.data);
         if (!canvas) return;
 
         const link = document.createElement('a');

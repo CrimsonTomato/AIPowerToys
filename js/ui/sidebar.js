@@ -7,9 +7,9 @@ export function renderFolderConnectionStatus() {
     const connectBtn = dom.connectFolderBtn();
     const pathText = dom.currentFolderPath();
     if (!connectBtn || !pathText) return;
-    if (state.directoryHandle) {
+    if (state.system.directoryHandle) {
         connectBtn.textContent = 'Change Folder';
-        pathText.textContent = `Connected: ${state.directoryHandle.name}`;
+        pathText.textContent = `Connected: ${state.system.directoryHandle.name}`;
     } else {
         connectBtn.textContent = 'Connect Folder';
         pathText.textContent = 'Not connected';
@@ -19,12 +19,12 @@ export function renderFolderConnectionStatus() {
 export function applySidebarWidth() {
     const appContainer = dom.appContainer();
     if (appContainer) {
-        appContainer.style.gridTemplateColumns = `${state.sidebarWidth}px 1fr`;
+        appContainer.style.gridTemplateColumns = `${state.ui.sidebarWidth}px 1fr`;
     }
 }
 
 export function applyTheme() {
-    const isDark = state.theme === 'dark';
+    const isDark = state.system.theme === 'dark';
     document.documentElement.classList.toggle('dark-mode', isDark);
     const sunIcon = dom.themeIconSun();
     const moonIcon = dom.themeIconMoon();

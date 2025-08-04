@@ -6,10 +6,10 @@ export function renderGpuStatus() {
     const toggleBtn = dom.gpuToggleBtn();
     if (!statusEl || !toggleBtn) return;
 
-    if (state.gpuSupported) {
+    if (state.system.gpuSupported) {
         statusEl.textContent = 'WebGPU supported and available.';
         toggleBtn.disabled = false;
-        if (state.useGpu) {
+        if (state.system.useGpu) {
             toggleBtn.textContent = 'GPU: ON';
             toggleBtn.classList.add('btn-primary');
             toggleBtn.classList.remove('btn-secondary');

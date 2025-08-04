@@ -32,17 +32,17 @@ export function renderModelsList() {
     }
 
     // 2. Determine the new, sorted list of modules that should be visible.
-    const filteredModules = state.modules.filter(m =>
+    const filteredModules = state.models.modules.filter(m =>
         m.name.toLowerCase().includes(modelSearchTerm)
     );
 
     const getSortKey = id => {
-        const orderIndex = state.modelOrder.indexOf(id);
+        const orderIndex = state.models.modelOrder.indexOf(id);
         return orderIndex === -1 ? Infinity : orderIndex;
     };
     filteredModules.sort((a, b) => {
-        const aIsStarred = state.starredModels.has(a.id);
-        const bIsStarred = state.starredModels.has(b.id);
+        const aIsStarred = state.models.starredModels.has(a.id);
+        const bIsStarred = state.models.starredModels.has(b.id);
 
         if (aIsStarred !== bIsStarred) {
             return aIsStarred ? -1 : 1; // Starred models first
@@ -113,16 +113,18 @@ function _createSingleModelCard(module) {
  * @param {object} module The module data to render.
  */
 function _updateSingleModelCard(element, module) {
-    const statusInfo = state.modelStatuses[module.id] || { status: 'checking' };
-    const isActive = state.activeModuleId === module.id;
-    const isCollapsed = state.collapsedModels.has(module.id);
-    const isStarred = state.starredModels.has(module.id);
+    const statusInfo = state.models.modelStatuses[module.id] || {
+        status: 'checking',
+    };
+    const isActive = state.models.activeModuleId === module.id;
+    const isCollapsed = state.models.collapsedModels.has(module.id);
+    const isStarred = state.models.starredModels.has(module.id);
 
     const currentDownloadProgress =
         statusInfo.status === 'downloading' &&
-        state.downloadProgress.status === 'downloading' &&
-        state.downloadProgress.moduleId === module.id
-            ? state.downloadProgress
+        state.models.downloadProgress.status === 'downloading' &&
+        state.models.downloadProgress.moduleId === module.id
+            ? state.models.downloadProgress
             : null;
 
     // Update data attributes - this is cheap and efficient.

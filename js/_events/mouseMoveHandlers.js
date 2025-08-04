@@ -23,7 +23,7 @@ function handleMouseDown(e) {
         e.preventDefault();
     } else if (
         e.target.closest('.output-area') &&
-        state.comparisonMode === 'hold'
+        state.workbench.output.comparisonMode === 'hold'
     ) {
         showInputOnCanvas();
         e.preventDefault();
@@ -60,7 +60,7 @@ function handleMouseUp() {
     if (isDraggingSlider) {
         isDraggingSlider = false;
     }
-    if (state.comparisonMode === 'hold') {
+    if (state.workbench.output.comparisonMode === 'hold') {
         renderComparisonView();
     }
 }

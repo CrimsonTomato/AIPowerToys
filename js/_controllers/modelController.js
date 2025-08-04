@@ -26,7 +26,8 @@ export function initWorker() {
                 resolveSingleInferencePromise(data);
                 resolveSingleInferencePromise = null;
             } else {
-                const duration = Date.now() - state.inferenceStartTime;
+                const duration =
+                    Date.now() - state.workbench.inferenceStartTime;
                 setInferenceDuration(duration);
                 setOutputData(data);
                 setProcessing(false);
@@ -41,14 +42,17 @@ export function initWorker() {
 }
 
 export async function runInference() {
-    const activeModule = state.modules.find(m => m.id === state.activeModuleId);
-    const modelStatus = state.modelStatuses[state.activeModuleId];
+    const activeModule = state.models.modules.find(
+        m => m.id === state.models.activeModuleId
+    );
+    const modelStatus = state.models.modelStatuses[state.models.activeModuleId];
     const inputReady =
-        state.inputDataURLs.length > 0 || state.inputAudioURL !== null;
+        state.workbench.input.imageURLs.length > 0 ||
+        state.workbench.input.audioURL !== null;
 
     if (
         !inputReady ||
-        state.isProcessing ||
+        state.workbench.isProcessing ||
         !activeModule ||
         modelStatus.status !== 'found'
     )
@@ -61,8 +65,8 @@ export async function runInference() {
 
     try {
         if (
-            state.processingMode === 'iterative' &&
-            state.inputDataURLs.length > 1
+            state.workbench.processingMode === 'iterative' &&
+            state.workbench.input.imageURLs.length > 1
         ) {
             await _runIterativeInference(activeModule, modelStatus);
         } else {
@@ -88,8 +92,8 @@ function _getPipelineOptions(activeModule, modelStatus) {
     }
 
     const baseOptions = selectedVariant.pipeline_options || {};
-    const userConfigs = state.runtimeConfigs[activeModule.id] || {};
-    const device = state.useGpu ? 'webgpu' : 'wasm';
+    const userConfigs = state.workbench.runtimeConfigs[activeModule.id] || {};
+    const device = state.system.useGpu ? 'webgpu' : 'wasm';
 
     const finalPipelineOptions = {
         ...baseOptions,
@@ -158,18 +162,18 @@ async function _runBatchInference(activeModule, modelStatus) {
 
         let dataToProcess;
         if (activeModule.task === 'image-segmentation-with-prompt') {
-            if (state.inputDataURLs.length === 0)
+            if (state.workbench.input.imageURLs.length === 0)
                 throw new Error('No input image for segmentation.');
-            if (state.inputDataURLs.length > 1)
+            if (state.workbench.input.imageURLs.length > 1)
                 throw new Error(
                     'Image segmentation with prompts only supports single image input.'
                 );
-            if (state.inputPoints.length === 0)
+            if (state.workbench.input.points.length === 0)
                 throw new Error(
                     'Please add at least one prompt point to the image.'
                 );
 
-            const imageUrl = state.inputDataURLs[0];
+            const imageUrl = state.workbench.input.imageURLs[0];
 
             // For SAM, the worker needs the *original image dimensions* and the points.
             // It will handle reading the image and calculating embeddings.
@@ -182,31 +186,31 @@ async function _runBatchInference(activeModule, modelStatus) {
 
             finalPipelineOptions.image_width = image.width;
             finalPipelineOptions.image_height = image.height;
-            finalPipelineOptions.input_points = state.inputPoints.map(
-                p => p.point
-            ); // Pass points
-            finalPipelineOptions.input_labels = state.inputPoints.map(
-                p => p.label
-            ); // Pass labels
+            finalPipelineOptions.input_points =
+                state.workbench.input.points.map(p => p.point); // Pass points
+            finalPipelineOptions.input_labels =
+                state.workbench.input.points.map(p => p.label); // Pass labels
 
             dataToProcess = imageUrl; // Send the image URL to worker
-        } else if (state.inputAudioURL) {
+        } else if (state.workbench.input.audioURL) {
             dom.statusText().textContent = 'Status: Decoding audio file...';
-            dataToProcess = await decodeAudio(state.inputAudioURL.url);
+            dataToProcess = await decodeAudio(
+                state.workbench.input.audioURL.url
+            );
         } else {
             // For other image tasks (image-to-image, depth-estimation),
             // ensure single image if not batch, or throw error if multiple for single-image task
-            if (state.inputDataURLs.length === 0)
+            if (state.workbench.input.imageURLs.length === 0)
                 throw new Error('No input data provided.');
 
-            if (state.processingMode === 'batch') {
+            if (state.workbench.processingMode === 'batch') {
                 dataToProcess =
-                    state.inputDataURLs.length === 1
-                        ? state.inputDataURLs[0]
-                        : state.inputDataURLs;
+                    state.workbench.input.imageURLs.length === 1
+                        ? state.workbench.input.imageURLs[0]
+                        : state.workbench.input.imageURLs;
             } else {
                 // iterative mode, send only first for now
-                dataToProcess = state.inputDataURLs[0];
+                dataToProcess = state.workbench.input.imageURLs[0];
             }
         }
 
