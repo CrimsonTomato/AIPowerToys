@@ -1,3 +1,5 @@
+import { applyMaskToImageData } from '../../js/ui/utils/displayUtils.js';
+
 /**
  * Post-processes the output of the RMBG-1.4 image-segmentation model.
  * It can either return a black and white mask, or apply the mask to the
@@ -43,24 +45,8 @@ export async function postprocess(output, inputUrl, options) {
         imageBitmap.height
     );
 
-    // Apply the mask to the alpha channel.
-    // The mask and the image may have different dimensions, so we need to scale indices.
-    const widthRatio = mask.width / imageData.width;
-    const heightRatio = mask.height / imageData.height;
-
-    for (let y = 0; y < imageData.height; y++) {
-        for (let x = 0; x < imageData.width; x++) {
-            const targetIndex = y * imageData.width + x;
-
-            // Find the corresponding pixel in the (potentially larger) mask
-            const maskX = Math.floor(x * widthRatio);
-            const maskY = Math.floor(y * heightRatio);
-            const maskIndex = maskY * mask.width + maskX;
-
-            // Set the alpha value of the output pixel to the mask's grayscale value
-            imageData.data[targetIndex * 4 + 3] = mask.data[maskIndex];
-        }
-    }
-
-    return imageData;
+    // Use the robust utility function to apply the mask. The mask from this
+    // pipeline is a RawImage with grayscale values (0-255), which is what
+    // the utility function expects.
+    return applyMaskToImageData(imageData, mask);
 }

@@ -27,7 +27,7 @@ export async function loadAppState() {
         ) {
             setUseGpu(savedState.useGpu);
         }
-        setProcessingMode(savedState.processingMode || 'batch');
+        setProcessingMode(savedState.processingMode || 'batch'); // Load saved processing mode
 
         // These don't have direct UI effects on their own, so they can be set directly
         setStarredModels(new Set(savedState.starredModels || []));
@@ -68,7 +68,7 @@ export async function saveAppState() {
         sidebarWidth: state.ui.sidebarWidth,
         theme: state.system.theme,
         useGpu: state.system.useGpu,
-        processingMode: state.workbench.processingMode,
+        processingMode: state.workbench.processingMode, // Save processing mode
         starredModels: Array.from(state.models.starredModels),
         modelOrder: state.models.modelOrder,
         collapsedModels: Array.from(state.models.collapsedModels),

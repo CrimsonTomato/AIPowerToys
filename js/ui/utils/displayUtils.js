@@ -116,3 +116,27 @@ export function blendMaskOntoImageData(imageData, mask, color) {
     }
     return newImageData;
 }
+
+/**
+ * Converts an ImageData object to a temporary, renderable canvas element.
+ * Includes guards against invalid or zero-dimension ImageData.
+ * @param {ImageData | null | undefined} imageData The ImageData to convert.
+ * @returns {HTMLCanvasElement | null} A canvas with the image data, or null if input is invalid.
+ */
+export function imageDataToCanvas(imageData) {
+    if (
+        !imageData ||
+        typeof imageData.width === 'undefined' ||
+        typeof imageData.height === 'undefined' ||
+        imageData.width === 0 ||
+        imageData.height === 0
+    ) {
+        return null;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+}

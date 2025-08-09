@@ -137,8 +137,8 @@ self.onmessage = async e => {
         } catch (error) {
             console.error(error);
             self.postMessage({
-                type: 'status',
-                data: `Error: ${error.message}`,
+                type: 'error',
+                data: error.message,
             });
             currentPipeline = null;
             currentModelId = null;

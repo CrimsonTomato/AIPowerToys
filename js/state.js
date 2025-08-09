@@ -34,7 +34,7 @@ export let state = {
         isProcessing: false,
         inferenceStartTime: null,
         inferenceDuration: null,
-        runtimeConfigs: {},
+        runtimeConfigs: {}, // Stores per-module runtime parameter values
         processingMode: 'batch', // 'batch' or 'iterative'
         input: {
             imageURLs: [], // Renamed from inputDataURLs

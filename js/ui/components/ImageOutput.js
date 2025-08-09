@@ -2,6 +2,7 @@ import { dom } from '../../dom.js';
 import { state } from '../../state.js';
 import { eventBus } from '../../_events/eventBus.js';
 import { getContainSize } from '../../utils.js';
+import { imageDataToCanvas } from '../utils/displayUtils.js';
 
 let uiCache = {};
 let inputImageForCompare = null;
@@ -38,20 +39,30 @@ function renderOutputGrid(results) {
     const { batchOutputGrid } = uiCache;
     if (!batchOutputGrid || !results) return;
 
-    batchOutputGrid.innerHTML = results
-        .map(imageData => {
-            if (!imageData) return '';
-            const canvas = document.createElement('canvas');
-            canvas.width = imageData.width;
-            canvas.height = imageData.height;
-            canvas.getContext('2d').putImageData(imageData, 0, 0);
-            return `
-            <div class="grid-image-item">
-                ${canvas.outerHTML}
-                <div class="grid-item-overlay"><span class="material-icons">zoom_in</span></div>
-            </div>`;
-        })
-        .join('');
+    // Clear previous results before appending new ones
+    batchOutputGrid.innerHTML = '';
+
+    // Programmatically create and append elements to preserve canvas pixel data
+    results.forEach(imageData => {
+        const canvas = imageDataToCanvas(imageData);
+        if (!canvas) return; // Skip invalid or null image data
+
+        // Create the wrapper div
+        const gridItem = document.createElement('div');
+        gridItem.className = 'grid-image-item';
+
+        // Create the overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'grid-item-overlay';
+        overlay.innerHTML = `<span class="material-icons">zoom_in</span>`;
+
+        // Append the canvas element itself (not its HTML string)
+        gridItem.appendChild(canvas);
+        gridItem.appendChild(overlay);
+
+        // Append the completed item to the grid
+        batchOutputGrid.appendChild(gridItem);
+    });
 }
 
 async function _getLoadedInputImage() {
@@ -186,7 +197,7 @@ export async function redrawCompareCanvas(splitX_visual) {
     if (!inputImage || !outputImageData || !outputImageData.width) return;
 
     canvas.width = inputImage.width;
-    canvas.height = inputImage.height;
+    canvas.height = input - Image.height;
 
     const visualXRel = splitX_visual - imageBounds.x;
     const logicalX = (visualXRel / imageBounds.width) * canvas.width;

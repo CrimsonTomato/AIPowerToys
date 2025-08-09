@@ -40,9 +40,17 @@ function render() {
         timerEl.classList.remove('hidden');
 
         if (!timerInterval) {
+            // When starting the timer, immediately reset the display text.
+            timerEl.textContent = 'Time: 0.00s';
             timerInterval = setInterval(() => {
-                const elapsed = (Date.now() - inferenceStartTime) / 1000;
-                timerEl.textContent = `Time: ${elapsed.toFixed(2)}s`;
+                const startTime = state.workbench.inferenceStartTime;
+                // Only update if the start time has been set.
+                if (startTime) {
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    if (!isNaN(elapsed)) {
+                        timerEl.textContent = `Time: ${elapsed.toFixed(2)}s`;
+                    }
+                }
             }, 100);
         }
     } else {

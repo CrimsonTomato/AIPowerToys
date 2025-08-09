@@ -98,8 +98,9 @@ function _renderRuntimeControls(activeModule) {
     const isIterative = state.workbench.processingMode === 'iterative';
     const isSamTask = activeModule?.task === 'image-segmentation-with-prompt';
 
+    // Add a global control for iterative processing, but not for SAM or audio tasks.
     let globalControlsHtml = '';
-    if (!isSamTask) {
+    if (!isSamTask && activeModule.task !== 'automatic-speech-recognition') {
         globalControlsHtml = `
             <div class="runtime-control checkbox-control">
                 <label for="param-processing-mode">Iterative Processing (One-by-one)</label>

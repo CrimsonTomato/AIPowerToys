@@ -32,6 +32,17 @@ export function initWorker() {
                 setOutputData(data);
                 setProcessing(false);
             }
+        } else if (type === 'error') {
+            dom.statusText().textContent = `Status: ${data}`;
+            const duration = state.workbench.inferenceStartTime
+                ? Date.now() - state.workbench.inferenceStartTime
+                : null;
+            setInferenceDuration(duration);
+            setProcessing(false);
+            if (resolveSingleInferencePromise) {
+                resolveSingleInferencePromise(null); // Resolve with null on error to prevent hanging
+                resolveSingleInferencePromise = null;
+            }
         } else if (type === 'status') {
             // This is a direct status update from the worker and is fine to leave here,
             // as it doesn't rely on the main app's state object.
@@ -64,9 +75,14 @@ export async function runInference() {
     setOutputData(null);
 
     try {
+        // If iterative mode is on and we have multiple images, run them one by one.
         if (
             state.workbench.processingMode === 'iterative' &&
-            state.workbench.input.imageURLs.length > 1
+            // This check ensures we only use this path for image tasks with multiple inputs.
+            state.workbench.input.imageURLs.length > 1 &&
+            (activeModule.task === 'image-to-image' ||
+                activeModule.task === 'image-segmentation' ||
+                activeModule.task === 'depth-estimation')
         ) {
             await _runIterativeInference(activeModule, modelStatus);
         } else {
@@ -108,9 +124,37 @@ function _getPipelineOptions(activeModule, modelStatus) {
     return { selectedVariant, finalPipelineOptions };
 }
 
+async function _runIterativeInference(activeModule, modelStatus) {
+    const urls = state.workbench.input.imageURLs;
+    const results = [];
+    for (let i = 0; i < urls.length; i++) {
+        // Stop processing if the user has switched models or cleared inputs
+        if (!state.workbench.isProcessing) break;
+
+        dom.statusText().textContent = `Status: Processing image ${i + 1} of ${
+            urls.length
+        }...`;
+        try {
+            const result = await _executeSingleInference(
+                urls[i],
+                activeModule,
+                modelStatus
+            );
+            if (result) {
+                results.push(result);
+                setOutputData([...results]); // Update UI with growing result list
+            }
+        } catch (error) {
+            console.error(`Error processing item ${i}:`, error);
+            // Optionally, push an error placeholder to the results
+        }
+    }
+    const duration = Date.now() - state.workbench.inferenceStartTime;
+    setInferenceDuration(duration);
+    setProcessing(false);
+}
 async function _executeSingleInference(url, activeModule, modelStatus) {
-    // This function is for iterative processing, which SAM does not support in its current UI iteration.
-    // So this path should ideally not be taken for SAM.
+    // This function is for iterative processing of a single item.
     return new Promise(async (resolve, reject) => {
         try {
             resolveSingleInferencePromise = resolve;
@@ -198,20 +242,15 @@ async function _runBatchInference(activeModule, modelStatus) {
                 state.workbench.input.audioURL.url
             );
         } else {
-            // For other image tasks (image-to-image, depth-estimation),
-            // ensure single image if not batch, or throw error if multiple for single-image task
+            // For other image tasks
             if (state.workbench.input.imageURLs.length === 0)
-                throw new Error('No input data provided.');
+                throw new Error('No input images provided.');
 
-            if (state.workbench.processingMode === 'batch') {
-                dataToProcess =
-                    state.workbench.input.imageURLs.length === 1
-                        ? state.workbench.input.imageURLs[0]
-                        : state.workbench.input.imageURLs;
-            } else {
-                // iterative mode, send only first for now
-                dataToProcess = state.workbench.input.imageURLs[0];
-            }
+            // In batch mode, send a single image URL or an array of them.
+            dataToProcess =
+                state.workbench.input.imageURLs.length === 1
+                    ? state.workbench.input.imageURLs[0]
+                    : state.workbench.input.imageURLs;
         }
 
         inferenceWorker.postMessage({
